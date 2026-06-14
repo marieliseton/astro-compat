@@ -3,11 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+
+    <!-- Barre navigateur : couleur initiale = blanc (écran 1).
+         Mise à jour dynamiquement via JS pour chaque écran. -->
     <meta name="theme-color" content="#ffffff" />
+
+    <!-- iOS : status bar translucide = le fond du site passe derrière -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Android Chrome : active la barre colorée -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Empêche l'affichage de la barre blanche lors du overscroll -->
+    <meta name="color-scheme" content="light" />
+
     <title>Compatibilité Astrale</title>
     <link href="https://fonts.googleapis.com/css2?family=IM+Fell+DW+Pica:ital@0;1&family=IBM+Plex+Mono&display=swap" rel="stylesheet"/>
+
+    <style>
+      /* Appliqué immédiatement avant React pour éviter le flash blanc */
+      html, body { background: #ffffff; margin: 0; padding: 0; overflow: hidden; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

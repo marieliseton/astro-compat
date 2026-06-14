@@ -1,21 +1,30 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
-  background: #fff;
+  /* background mis à jour dynamiquement par JS selon l'écran courant.
+     background-attachment:fixed garantit que le gradient est ancré à l'écran (pas au scroll).
+     Avec viewport-fit=cover, l'élément html couvre l'intégralité du viewport physique,
+     y compris derrière la barre de statut iOS. */
+  background: #ffffff;
   background-attachment: fixed;
+  height: 100%;
   height: -webkit-fill-available;
+  height: 100dvh;
+  overscroll-behavior: none;
 }
 
 body {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-height: 100%;
-  min-height: -webkit-fill-available;
+  height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
-  background: transparent;
+  overscroll-behavior: none;
+  background: transparent; /* laisse passer le gradient de html */
   font-family: 'IM Fell DW Pica', serif;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-x pan-y; /* autorise le pan mais pas le bounce */
 }
 
 #root {
