@@ -401,15 +401,22 @@ export default function App() {
   const [error1, setError1] = useState('')
   const [error2, setError2] = useState('')
 
-  // Sync html background + theme-color avec l'écran courant
+  // Sync html background + theme-color avec l'écran courant.
+  // iOS Safari ne répond pas à setAttribute sur un meta existant —
+  // on supprime et recrée le tag pour forcer la relecture du navigateur.
   useEffect(() => {
     const gradient = SCREEN_GRADIENT[screen]
     const topColor = SCREEN_TOP[screen]
     document.documentElement.style.background = gradient
     document.documentElement.style.backgroundAttachment = 'fixed'
     document.body.style.background = 'transparent'
-    const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', topColor)
+    // Force iOS Safari à relire le theme-color en recrééant le meta tag
+    const existing = document.querySelector('meta[name="theme-color"]')
+    if (existing) existing.remove()
+    const meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    meta.content = topColor
+    document.head.appendChild(meta)
   }, [screen])
 
   function updateP1(k,v) { setP1(p=>({...p,[k]:v})) }
