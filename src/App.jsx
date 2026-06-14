@@ -423,7 +423,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
   })
 
   return (
-    <div style={{ width:'100vw', height:'100dvh', minHeight:'100dvh', position:'relative', overflow:'hidden', background:'#FBF2DB' }}>
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
 
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FBF2DB', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
