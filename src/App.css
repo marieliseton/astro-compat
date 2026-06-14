@@ -1,7 +1,6 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
-  /* étend le fond sous les barres iOS */
   background: #fff;
   height: -webkit-fill-available;
 }
@@ -12,7 +11,7 @@ body {
   width: 100%;
   min-height: 100%;
   min-height: -webkit-fill-available;
-  overflow-x: hidden;
+  overflow: hidden;
   background: #fff;
   font-family: 'IM Fell DW Pica', serif;
   -webkit-tap-highlight-color: transparent;
@@ -23,9 +22,6 @@ body {
   height: 100%;
   background: #fff;
 }
-
-/* Le conteneur principal est fixed inset:0 + viewport-fit=cover dans index.html,
-   donc il s'étend naturellement sous les barres Safari iOS */
 
 @keyframes spin {
   from { transform: rotate(0deg); }

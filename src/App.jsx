@@ -71,18 +71,32 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
   }
 }
 
+async function getTimezone(lat, lng) {
+  try {
+    const res = await fetch(`https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.timeZone) return data.timeZone
+    }
+  } catch { /* ignore */ }
+  return 'UTC'
+}
+
 async function geocodeCity(cityInput) {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityInput)}&format=json&limit=1&addressdetails=1`
   const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } })
   const data = await res.json()
   if (!data.length) throw new Error(`Ville introuvable : ${cityInput}`)
   const p = data[0]
+  const lat = parseFloat(p.lat)
+  const lng = parseFloat(p.lon)
+  const tz = await getTimezone(lat, lng)
   return {
-    lat: parseFloat(p.lat),
-    lng: parseFloat(p.lon),
+    lat,
+    lng,
     city: p.address.city || p.address.town || p.address.village || cityInput.split(',')[0],
     country: p.address.country_code?.toUpperCase() || 'FR',
-    tz: 'Europe/Paris',
+    tz,
   }
 }
 
@@ -585,8 +599,6 @@ export default function App() {
         body: JSON.stringify({
           first_subject: subject1,
           second_subject: subject2,
-          zodiac_type: 'Tropic',       // astrologie occidentale (tropicale)
-          house_system: 'Placidus',    // système de maisons occidental standard
           active_points: ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Ascendant'],
           active_aspects: [
             { name: 'conjunction', orb: 8 },
@@ -651,7 +663,7 @@ Règles absolues :
   })
 
   return (
-    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#fff' }}>
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
         <StarGrid />
