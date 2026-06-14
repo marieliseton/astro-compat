@@ -10,15 +10,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function fallbackInterpretation(score, p1Name, p2Name) {
   if (score >= 75) {
-    return `${p1Name} et ${p2Name} avancent au même rythme sans avoir à se forcer : les idées de l'un trouvent un écho chez l'autre, et les silences ne pèsent jamais. Peu de friction, beaucoup de fluidité. Un lien qui demande peu d'efforts pour tenir.`
+    return `${p1Name} et ${p2Name} se comprennent facilement et avancent dans le même sens sans avoir à se forcer. Le principal risque est de ne pas exprimer les désaccords, en supposant que l'autre pense pareil. Conseil : prenez l'habitude de vérifier à voix haute plutôt que de supposer.`
   }
   if (score >= 55) {
-    return `${p1Name} lance, ${p2Name} tempère — et c'est souvent là que ça marche : l'un ose, l'autre stabilise. Quelques accrochages sur le rythme et les non-dits sont à prévoir. Si chacun écoute la cadence de l'autre, le lien tient.`
+    return `${p1Name} et ${p2Name} se complètent bien sur l'essentiel, même si leurs rythmes et priorités diffèrent parfois. Les tensions surviennent surtout quand l'un attend que l'autre prenne l'initiative et que l'autre attend qu'on lui demande. Conseil : soyez directs sur vos attentes, ne comptez pas sur les sous-entendus.`
   }
   if (score >= 40) {
-    return `${p1Name} et ${p2Name} ne fonctionnent pas pareil : ce qui motive l'un peut lasser l'autre. Le terrain commun existe mais se construit. Il faudra de la patience et des vrais échanges plutôt que des suppositions.`
+    return `${p1Name} et ${p2Name} fonctionnent assez différemment, ce qui crée autant d'opportunités que de frictions. Ce qui motive l'un peut fatiguer l'autre, et les malentendus sont fréquents sans efforts de clarté. Conseil : définissez clairement les rôles de chacun dès le départ pour éviter les frustrations.`
   }
-  return `${p1Name} et ${p2Name} avancent sur des chemins différents, avec des rythmes et des priorités qui se croisent peu. Le lien est possible, mais il demande des efforts constants et beaucoup de clarté pour ne pas s'épuiser.`
+  return `${p1Name} et ${p2Name} ont des approches très différentes qui demandent beaucoup d'ajustements. Sans communication régulière, les incompréhensions s'accumulent rapidement. Conseil : investissez dans des points réguliers pour aligner vos attentes, sinon la relation s'épuise.`
 }
 
 async function generateInterpretation(prompt, score, p1Name, p2Name) {
@@ -71,18 +71,32 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
   }
 }
 
+async function getTimezone(lat, lng) {
+  try {
+    const res = await fetch(`https://timeapi.io/api/TimeZone/coordinate?latitude=${lat}&longitude=${lng}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.timeZone) return data.timeZone
+    }
+  } catch { /* ignore */ }
+  return 'UTC'
+}
+
 async function geocodeCity(cityInput) {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityInput)}&format=json&limit=1&addressdetails=1`
   const res = await fetch(url, { headers: { 'Accept-Language': 'fr' } })
   const data = await res.json()
   if (!data.length) throw new Error(`Ville introuvable : ${cityInput}`)
   const p = data[0]
+  const lat = parseFloat(p.lat)
+  const lng = parseFloat(p.lon)
+  const tz = await getTimezone(lat, lng)
   return {
-    lat: parseFloat(p.lat),
-    lng: parseFloat(p.lon),
+    lat,
+    lng,
     city: p.address.city || p.address.town || p.address.village || cityInput.split(',')[0],
     country: p.address.country_code?.toUpperCase() || 'FR',
-    tz: 'Europe/Paris',
+    tz,
   }
 }
 
@@ -140,7 +154,7 @@ function FieldText({ top, label, value, onChange, onEnter, inputRef }) {
 }
 
 // ── Champ ville ──
-function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
+function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef }) {
   const [active, setActive] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
@@ -154,22 +168,23 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
     clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`, { headers: { 'Accept-Language':'fr' } })
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&featuretype=city`, { headers: { 'Accept-Language':'fr' } })
         const data = await res.json()
         const seen = {}
         const items = data.map(p => {
-          const city = p.address.city||p.address.town||p.address.village||p.display_name.split(',')[0].trim()
+          const city = p.address.city||p.address.town||p.address.village||p.address.municipality||p.display_name.split(',')[0].trim()
           const country = p.address.country||''
           return city+(country?', '+country:'')
         }).filter(l => { if(seen[l]) return false; seen[l]=1; return true })
         setSuggestions(items)
         setShowDrop(items.length > 0)
       } catch { setSuggestions([]); setShowDrop(false) }
-    }, 400)
+    }, 100)
   }
 
   function pick(s) {
     onChange(s)
+    onConfirm(s)   // signale que la ville a été choisie dans le dropdown
     setShowDrop(false)
     setSuggestions([])
   }
@@ -190,20 +205,23 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              if (showDrop && suggestions.length > 0) pick(suggestions[0])
-              else onEnter?.()
+              if (showDrop && suggestions.length > 0) { pick(suggestions[0]); onEnter?.() }
             } else if (e.key === 'Tab') {
               e.preventDefault()
               if (showDrop && suggestions.length > 0) pick(suggestions[0])
               onEnter?.()
             }
           }}
-          onChange={e => { onChange(e.target.value); fetchSugg(e.target.value) }} />
+          onChange={e => {
+            onChange(e.target.value)
+            onConfirm(null)  // reset confirmation quand l'utilisateur tape manuellement
+            fetchSugg(e.target.value)
+          }} />
       </div>
       {showDrop && (
         <div style={{ position:'absolute', top:55, left:0, width:'100%', background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.12)', overflow:'hidden', zIndex:100 }}>
           {suggestions.map((s,i) => (
-            <div key={i} onMouseDown={() => pick(s)}
+            <div key={i} onMouseDown={() => pick(s)} onTouchEnd={() => pick(s)}
               style={{ padding:'11px 16px', fontFamily:'-apple-system, BlinkMacSystemFont, sans-serif', fontSize:15, color:'#1c1c1e', cursor:'pointer', borderBottom: i < suggestions.length-1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}
               onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.05)'}
               onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -237,7 +255,18 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
         enterKeyHint="next"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
-        onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,8); onDateChange(d) }}
+        onChange={e => {
+          let d = e.target.value.replace(/\D/g,'').slice(0,8)
+          // jour : 1er chiffre max 3
+          if (d.length >= 1 && parseInt(d[0]) > 3) d = '3' + d.slice(1)
+          // jour : 01–31
+          if (d.length >= 2) { const j=parseInt(d.slice(0,2)); if(j===0) d='01'+d.slice(2); else if(j>31) d='31'+d.slice(2) }
+          // mois : 1er chiffre max 1
+          if (d.length >= 3 && parseInt(d[2]) > 1) d = d.slice(0,2)+'1'+d.slice(3)
+          // mois : 01–12
+          if (d.length >= 4) { const m=parseInt(d.slice(2,4)); if(m===0) d=d.slice(0,2)+'01'+d.slice(4); else if(m>12) d=d.slice(0,2)+'12'+d.slice(4) }
+          onDateChange(d)
+        }}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onEnter?.() } }}
         onBlur={() => setActive(false)} />
     </div>
@@ -265,7 +294,16 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
         enterKeyHint="done"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
-        onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,4); onTimeChange(d) }}
+        onChange={e => {
+          let d = e.target.value.replace(/\D/g,'').slice(0,4)
+          // heure : 1er chiffre max 2
+          if (d.length >= 1 && parseInt(d[0]) > 2) d = '2' + d.slice(1)
+          // heure : 00–23
+          if (d.length >= 2) { const h=parseInt(d.slice(0,2)); if(h>23) d='23'+d.slice(2) }
+          // minutes : 1er chiffre max 5
+          if (d.length >= 3 && parseInt(d[2]) > 5) d = d.slice(0,2)+'5'+d.slice(3)
+          onTimeChange(d)
+        }}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onEnter?.() } }}
         onBlur={() => setActive(false)} />
     </div>
@@ -273,32 +311,31 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
 }
 
 // ── Écran formulaire ──
-function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onSubmit, error }) {
+function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onVilleConfirm, onSubmit, error }) {
   const refVille = useRef(null)
   const refDate = useRef(null)
   const refTime = useRef(null)
 
   return (
     <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden', background:'#FBF2DB',
-      transition:'opacity 0.4s ease, transform 0.4s ease',
-      opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none',
-      transform: visible ? 'translateX(0)' : 'translateX(30px)' }}>
+      transition:'opacity 0.4s ease',
+      opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none' }}>
 
       <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center', ...bgStyle }} />
 
-      {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', textAlign:'center' }}>{deco}</div>}
+      {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
 
       {[126,194,262,330].map(t => (
         <div key={t} style={{ position:'absolute', width:322, height:55, left:'calc(50% - 161px)', top:t, background:'#FFF', filter:'blur(12.65px)', borderRadius:100 }} />
       ))}
 
       <FieldText  top={126} label={labels[0]} value={data.prenom}  onChange={v => onChange('prenom', v)} onEnter={() => refVille.current?.focus()} />
-      <FieldVille top={194} label={labels[1]} value={data.ville}   onChange={v => onChange('ville', v)}  onEnter={() => refDate.current?.focus()}  inputRef={refVille} />
+      <FieldVille top={194} label={labels[1]} value={data.ville} onChange={v => onChange('ville', v)} onConfirm={v => onVilleConfirm(v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
       <FieldDate  top={262} label={labels[2]} dateRaw={data.dateRaw} onDateChange={v => onChange('dateRaw', v)} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
       <FieldTime  top={330} label={labels[3]} timeRaw={data.timeRaw} onTimeChange={v => onChange('timeRaw', v)} onEnter={onSubmit} inputRef={refTime} />
 
       {error && (
-        <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:'#a0485a', textAlign:'center' }}>{error}</div>
+        <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>
       )}
 
       <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
@@ -399,12 +436,128 @@ function SparkCursor() {
   return null
 }
 
+// ── Star grid background ──
+const STAR_SYMBOLS = [
+  '✩','✧','＊','*','˚','₊','⁺','°','✦','⋆','˖','•','‧','ੈ',
+  '★','✪','☆','。','❤','◌','➶','ᕯ','💫','✱','｡','✰','✨',
+  '｡','･',':','˚','☆','✦','✧','✩','✦','☆','✨','⁺','°',
+  '✩','✦','✧','✨','☆','✪','★','⋆','✧','✦','✩','✨','˚','•'
+]
+const STAR_COLORS = [
+  '#3d3dcc','#5a5af0','#7b5ea7','#9b59b6','#c45aec',
+  '#e91e8c','#ff6b9d','#f48fb1','#d63384',
+  '#00bcd4','#26c6da','#4dd0e1','#80deea',
+  '#7986cb','#5c6bc0','#3949ab','#283593',
+  '#ce93d8','#ba68c8','#ab47bc','#ec407a','#f06292','#ff4081'
+]
+const HOVER_COLORS = [
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#e91e8c',
+  '#ff6b9d','#ffd700','#00bcd4','#8bc34a','#ff5722','#c0392b','#1abc9c'
+]
+
+function StarGrid() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const container = ref.current
+    if (!container) return
+    let cells = []
+    let hoverIdx = 0
+    let shuffleTimer, twinkleTimer
+
+    function build() {
+      container.innerHTML = ''
+      cells = []
+      const W = container.offsetWidth
+      const H = container.offsetHeight
+      const CELL = 32
+      const cols = Math.ceil(W / CELL)
+      const rows = Math.ceil(H / CELL)
+      container.style.display = 'grid'
+      container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+      container.style.gridTemplateRows = `repeat(${rows}, 1fr)`
+
+      for (let i = 0; i < cols * rows; i++) {
+        const cell = document.createElement('div')
+        cell.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:18px;cursor:default;user-select:none;transition:color 0.08s,transform 0.1s;'
+        cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+        const c = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)]
+        cell.style.color = c
+        cell.dataset.baseColor = c
+        container.appendChild(cell)
+        cells.push(cell)
+      }
+    }
+
+    function twinkle() {
+      const n = Math.floor(Math.random() * 4) + 1
+      for (let i = 0; i < n; i++) {
+        const cell = cells[Math.floor(Math.random() * cells.length)]
+        if (!cell || cell.dataset.painted) continue
+        cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+        cell.style.transition = 'color 0.05s,transform 0.05s'
+        cell.style.color = '#fff'
+        cell.style.transform = 'scale(1.2)'
+        setTimeout(() => {
+          cell.style.color = cell.dataset.baseColor
+          cell.style.transform = ''
+        }, 150 + Math.random() * 200)
+      }
+      twinkleTimer = setTimeout(twinkle, 80 + Math.random() * 250)
+    }
+
+    function paintCell(cell) {
+      if (!cell || !cell.dataset.baseColor) return
+      cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+      const color = HOVER_COLORS[hoverIdx++ % HOVER_COLORS.length]
+      cell.style.color = color
+      cell.dataset.painted = '1'
+      cell.style.transform = 'scale(1.3)'
+    }
+
+    function onMouseOver(e) { paintCell(e.target) }
+
+    function onTouchMove(e) {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const el = document.elementFromPoint(touch.clientX, touch.clientY)
+      if (el && el.dataset.baseColor) paintCell(el)
+    }
+
+    function onTouchStart(e) {
+      const touch = e.touches[0]
+      const el = document.elementFromPoint(touch.clientX, touch.clientY)
+      if (el && el.dataset.baseColor) paintCell(el)
+    }
+
+    build()
+    twinkle()
+    container.addEventListener('mouseover', onMouseOver)
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
+    const ro = new ResizeObserver(build)
+    ro.observe(container)
+
+    return () => {
+      clearTimeout(twinkleTimer)
+      container.removeEventListener('mouseover', onMouseOver)
+      container.removeEventListener('touchmove', onTouchMove)
+      container.removeEventListener('touchstart', onTouchStart)
+      ro.disconnect()
+    }
+  }, [])
+
+  return <div ref={ref} style={{ position:'absolute', inset:0, overflow:'hidden' }} />
+}
+
 // ── App principale ──
 export default function App() {
   const [screen, setScreen] = useState(1)
   const [formKey, setFormKey] = useState(0)
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
+  const [ville1Ok, setVille1Ok] = useState(false)
+  const [ville2Ok, setVille2Ok] = useState(false)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error1, setError1] = useState('')
@@ -415,7 +568,7 @@ export default function App() {
 
   function validateP1() {
     if (!p1.prenom.trim()) { setError1('Merci de renseigner votre prénom.'); return false }
-    if (!p1.ville.trim())  { setError1('Merci de renseigner votre ville.'); return false }
+    if (!p1.ville.trim() || !ville1Ok) { setError1('Sélectionnez une ville dans la liste.'); return false }
     if (p1.dateRaw.length < 8) { setError1('Date incomplète (JJ/MM/AAAA).'); return false }
     if (p1.timeRaw.length < 4) { setError1('Heure incomplète (hhmm).'); return false }
     setError1(''); return true
@@ -423,7 +576,7 @@ export default function App() {
 
   function validateP2() {
     if (!p2.prenom.trim()) { setError2('Merci de renseigner son prénom.'); return false }
-    if (!p2.ville.trim())  { setError2('Merci de renseigner sa ville.'); return false }
+    if (!p2.ville.trim() || !ville2Ok) { setError2('Sélectionnez une ville dans la liste.'); return false }
     if (p2.dateRaw.length < 8) { setError2('Date incomplète (JJ/MM/AAAA).'); return false }
     if (p2.timeRaw.length < 4) { setError2('Heure incomplète (hhmm).'); return false }
     setError2(''); return true
@@ -462,29 +615,28 @@ export default function App() {
       const aspectsArr = synData?.aspects || synData?.chart_data?.aspects || synData?.data?.aspects || []
       console.log('[astro] aspects reçus:', aspectsArr.length, synData)
 
-      const score = calculateScore(aspectsArr)
+      const score = calculateScore(aspectsArr, synData)
       const astroSummary = buildAstroSummary(
         { aspects: aspectsArr, first_subject: synData?.first_subject || synData?.chart_data?.first_subject, second_subject: synData?.second_subject || synData?.chart_data?.second_subject },
         p1.prenom, p2.prenom
       )
 
-      const prompt = `Tu analyses la compatibilité GÉNÉRALE entre deux personnes (pas amoureuse : leur façon de fonctionner ensemble au quotidien, en amitié, au travail, dans la vie).
+      const prompt = `Tu es un astrologue expert en synastrie occidentale. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
 
-Voici leurs données :
 ${astroSummary}
 
-Score : ${score}/100
+Score global : ${score}/100
 
-Écris un texte TRÈS COURT (3 à 4 phrases maximum). Règles strictes :
-- Utilise les prénoms : ${p1.prenom} et ${p2.prenom}.
-- Décris CONCRÈTEMENT leur dynamique : qui fait quoi, comment ils se complètent ou s'opposent dans la vraie vie.
-- Nomme le point de friction réel, puis la condition pour que le lien fonctionne.
-- Ton poétique, élégant et beau, mais SOBRE — pas de blabla, chaque phrase doit être utile et applicable.
-- N'utilise JAMAIS de vocabulaire astrologique (pas de "Soleil", "Lune", "aspect", "trigone", "signe", etc.). Traduis tout en traits de caractère et comportements concrets.
-- Cohérent avec le score de ${score}%.
-- Pas de titre, pas d'emoji. Réponds uniquement avec le texte.
+Écris exactement 3 phrases séparées par un saut de ligne. Pas de titre, pas d'emoji, pas de numéros, pas de tirets.
+— Phrase 1 : ce qui fonctionne naturellement entre eux.
+— Phrase 2 : le principal point de friction.
+— Phrase 3 : un conseil concret et honnête.
 
-Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est justement là que ça marche : l'une lance les idées, l'autre les pose. Attendez-vous à des élans freinés et des silences mal lus. Le vrai test sera la patience : si chacun respecte le rythme de l'autre, ce lien tient. Sinon il s'épuise."`
+Règles absolues :
+- Utilise leurs prénoms (${p1.prenom} et ${p2.prenom}).
+- Zéro vocabulaire astrologique (pas de signe, trigone, aspect, maison, planète).
+- Sois honnête : si la compatibilité est faible, dis-le clairement.
+- Phrases courtes, directes, sans métaphores.`
       const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)
@@ -501,27 +653,36 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
     setScreen(1); setResult(null)
     setP1({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
     setP2({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
+    setVille1Ok(false); setVille2Ok(false)
     setFormKey(k => k + 1)
   }
 
   const visible = (n) => ({
     opacity: screen===n ? 1 : 0,
     pointerEvents: screen===n ? 'all' : 'none',
-    transform: screen===n ? 'translateX(0)' : 'translateX(30px)',
   })
 
   return (
-    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
-      <SparkCursor />
-
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#fff' }}>
       {/* ── SCREEN 1 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFFFF', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
-        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#565454' }}>
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
+        <StarGrid />
+
+        {/* blur pill */}
+        <div style={{ position:'absolute', width:272, height:128, left:'calc(50% - 136px)', top:'calc(50% - 64px)', background:'#fff', filter:'blur(12.65px)', borderRadius:100, pointerEvents:'none' }} />
+
+        {/* titre */}
+        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#0B0B0B', pointerEvents:'none' }}>
           Découvrez votre compatibilité astral
         </div>
-        <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-          commencer
-          <span style={{ display:'block', width:82, height:1, background:'#000' }} />
+
+        {/* bouton bleu glossy */}
+        <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0 }}>
+          {/* glossy highlight */}
+          <div style={{ position:'absolute', left:'calc(50% - 65.5px)', top:2, width:131, height:25, background:'linear-gradient(181.02deg,#E1F0FF 12.94%,rgba(225,240,255,0.4) 56.69%,rgba(17,110,233,0.5) 92.77%)', borderRadius:100, pointerEvents:'none' }} />
+          <span style={{ position:'relative', fontFamily:"'IM Fell DW Pica',serif", fontSize:24, letterSpacing:'-0.04em', color:'#fff', textShadow:'0px 1px 1.6px #0164E7', lineHeight:'52px' }}>
+            Commencer
+          </span>
         </button>
       </div>
 
@@ -533,7 +694,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
         deco="₊˚⊹☆"
         ctaColor="#FFFBC9"
         labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
-        data={p1} onChange={updateP1} error={error1}
+        data={p1} onChange={updateP1} onVilleConfirm={v => setVille1Ok(!!v)} error={error1}
         onSubmit={() => { if(validateP1()) setScreen(3) }}
       />
 
@@ -545,22 +706,24 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
         deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩"
         ctaColor="#000000"
         labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
-        data={p2} onChange={updateP2} error={error2}
+        data={p2} onChange={updateP2} onVilleConfirm={v => setVille2Ok(!!v)} error={error2}
         onSubmit={() => { if(validateP2()) calculate() }}
       />
 
       {/* ── SCREEN 4 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(4) }}>
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
 
         {loading && (
-          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
+          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', background:'#FFFEEE', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
             <div style={{ fontSize:32, color:'#795275', animation:'spin 3s linear infinite' }}>✦</div>
-            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, color:'#795275', letterSpacing:'-0.04em' }}>les astres lisent vos destins…</p>
+            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, color:'#795275', letterSpacing:'-0.04em' }}>
+              nous calculons votre compatibilité<span className="dots" />
+            </p>
           </div>
         )}
 
         {!loading && result && !result.error && (
-          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
+          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
               <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
               <div style={{ display:'flex', alignItems:'flex-start' }}>
@@ -592,7 +755,11 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+        .dots::after { content:''; animation: dots 1.5s steps(4,end) infinite; }
+        @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+      `}</style>
     </div>
   )
 }

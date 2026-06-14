@@ -1,13 +1,18 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-html,
+html {
+  background: #fff;
+  height: -webkit-fill-available;
+}
+
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   min-height: 100%;
-  overflow-x: hidden;
-  background: #FBF2DB;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
+  background: #fff;
   font-family: 'IM Fell DW Pica', serif;
   -webkit-tap-highlight-color: transparent;
 }
@@ -15,10 +20,10 @@ body {
 #root {
   width: 100%;
   height: 100%;
-  background: #FBF2DB;
+  background: #fff;
 }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to   { transform: rotate(360deg); }
 }
