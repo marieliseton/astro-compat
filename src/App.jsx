@@ -419,6 +419,102 @@ function SparkCursor() {
   return null
 }
 
+// ── Star grid background ──
+const STAR_SYMBOLS = [
+  '✩','✧','＊','*','˚','₊','⁺','°','✦','⋆','˖','•','‧','ੈ',
+  '★','✪','☆','。','❤','◌','➶','ᕯ','💫','✱','｡','✰','✨',
+  '｡','･',':','˚','☆','✦','✧','✩','✦','☆','✨','⁺','°',
+  '✩','✦','✧','✨','☆','✪','★','⋆','✧','✦','✩','✨','˚','•'
+]
+const STAR_COLORS = [
+  '#3d3dcc','#5a5af0','#7b5ea7','#9b59b6','#c45aec',
+  '#e91e8c','#ff6b9d','#f48fb1','#d63384',
+  '#00bcd4','#26c6da','#4dd0e1','#80deea',
+  '#7986cb','#5c6bc0','#3949ab','#283593',
+  '#ce93d8','#ba68c8','#ab47bc','#ec407a','#f06292','#ff4081'
+]
+const HOVER_COLORS = [
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#e91e8c',
+  '#ff6b9d','#ffd700','#00bcd4','#8bc34a','#ff5722','#c0392b','#1abc9c'
+]
+
+function StarGrid() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const container = ref.current
+    if (!container) return
+    let cells = []
+    let hoverIdx = 0
+    let shuffleTimer, twinkleTimer
+
+    function build() {
+      container.innerHTML = ''
+      cells = []
+      const W = container.offsetWidth
+      const H = container.offsetHeight
+      const CELL = 32
+      const cols = Math.ceil(W / CELL)
+      const rows = Math.ceil(H / CELL)
+      container.style.display = 'grid'
+      container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+      container.style.gridTemplateRows = `repeat(${rows}, 1fr)`
+
+      for (let i = 0; i < cols * rows; i++) {
+        const cell = document.createElement('div')
+        cell.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:18px;cursor:default;user-select:none;transition:color 0.08s,transform 0.1s;'
+        cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+        const c = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)]
+        cell.style.color = c
+        cell.dataset.baseColor = c
+        container.appendChild(cell)
+        cells.push(cell)
+      }
+    }
+
+    function twinkle() {
+      const n = Math.floor(Math.random() * 4) + 1
+      for (let i = 0; i < n; i++) {
+        const cell = cells[Math.floor(Math.random() * cells.length)]
+        if (!cell || cell.dataset.painted) continue
+        cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+        cell.style.transition = 'color 0.05s,transform 0.05s'
+        cell.style.color = '#fff'
+        cell.style.transform = 'scale(1.2)'
+        setTimeout(() => {
+          cell.style.color = cell.dataset.baseColor
+          cell.style.transform = ''
+        }, 150 + Math.random() * 200)
+      }
+      twinkleTimer = setTimeout(twinkle, 80 + Math.random() * 250)
+    }
+
+    function onMouseOver(e) {
+      const cell = e.target
+      if (!cell.dataset.baseColor) return
+      cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
+      const color = HOVER_COLORS[hoverIdx++ % HOVER_COLORS.length]
+      cell.style.color = color
+      cell.dataset.painted = '1'
+      cell.style.transform = 'scale(1.3)'
+    }
+
+    build()
+    twinkle()
+    container.addEventListener('mouseover', onMouseOver)
+    const ro = new ResizeObserver(build)
+    ro.observe(container)
+
+    return () => {
+      clearTimeout(twinkleTimer)
+      container.removeEventListener('mouseover', onMouseOver)
+      ro.disconnect()
+    }
+  }, [])
+
+  return <div ref={ref} style={{ position:'absolute', inset:0, overflow:'hidden' }} />
+}
+
 // ── App principale ──
 export default function App() {
   const [screen, setScreen] = useState(1)
@@ -528,13 +624,24 @@ Ton : clair, direct, utile. Pas de métaphores ni de poésie. Utilise leurs pré
       <SparkCursor />
 
       {/* ── SCREEN 1 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFFFF', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
-        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#565454' }}>
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
+        <StarGrid />
+
+        {/* blur pill */}
+        <div style={{ position:'absolute', width:272, height:128, left:'calc(50% - 136px)', top:'calc(50% - 64px)', background:'#fff', filter:'blur(12.65px)', borderRadius:100, pointerEvents:'none' }} />
+
+        {/* titre */}
+        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#0B0B0B', pointerEvents:'none' }}>
           Découvrez votre compatibilité astral
         </div>
-        <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-          commencer
-          <span style={{ display:'block', width:82, height:1, background:'#000' }} />
+
+        {/* bouton bleu glossy */}
+        <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0 }}>
+          {/* glossy highlight */}
+          <div style={{ position:'absolute', left:'calc(50% - 65.5px)', top:2, width:131, height:25, background:'linear-gradient(181.02deg,#E1F0FF 12.94%,rgba(225,240,255,0.4) 56.69%,rgba(17,110,233,0.5) 92.77%)', borderRadius:100, pointerEvents:'none' }} />
+          <span style={{ position:'relative', fontFamily:"'IM Fell DW Pica',serif", fontSize:24, letterSpacing:'-0.04em', color:'#fff', textShadow:'0px 1px 1.6px #0164E7', lineHeight:'52px' }}>
+            Commencer
+          </span>
         </button>
       </div>
 
