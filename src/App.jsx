@@ -509,7 +509,7 @@ Règles absolues :
       <div style={{ position:'fixed', top:0, left:0, right:0, height:'env(safe-area-inset-top)', background:topColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
       <div style={{ position:'fixed', bottom:0, left:0, right:0, height:'env(safe-area-inset-bottom)', background:bottomColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
 
-      <div style={{ position:'fixed', inset:0, overflow:'hidden' }}>
+      <div style={{ position:'fixed', inset:0, overflow:'hidden', backgroundColor:topColor, transition:'background-color 0.4s' }}>
 
         {/* ── SCREEN 1 ── */}
         <div style={{ position:'absolute', inset:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s', ...visible(1) }}>
