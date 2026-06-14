@@ -317,7 +317,7 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, 
   const refTime = useRef(null)
 
   return (
-    <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden', background:'#FBF2DB',
+    <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden',
       transition:'opacity 0.4s ease',
       opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none' }}>
 
@@ -551,9 +551,17 @@ function StarGrid() {
 }
 
 // ── App principale ──
+const SCREEN_BG = { 1: '#ffffff', 2: '#FF589B', 3: '#78D119', 4: '#FFFEEE' }
+
 export default function App() {
   const [screen, setScreen] = useState(1)
   const [formKey, setFormKey] = useState(0)
+
+  useEffect(() => {
+    const color = SCREEN_BG[screen] || '#fff'
+    document.body.style.background = color
+    document.documentElement.style.background = color
+  }, [screen])
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [ville1Ok, setVille1Ok] = useState(false)
@@ -663,7 +671,7 @@ Règles absolues :
   })
 
   return (
-    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#fff' }}>
+    <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden' }}>
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
         <StarGrid />
