@@ -551,18 +551,27 @@ function StarGrid() {
 }
 
 // ── App principale ──
-const SCREEN_BG = { 1: '#ffffff', 2: '#FF589B', 3: '#78D119', 4: '#FFFEEE' }
+const SCREEN_GRADIENT = {
+  1: '#ffffff',
+  2: 'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)',
+  3: 'linear-gradient(180deg, #78D119 0%, #FFF827 100%)',
+  4: '#FFFEEE',
+}
+const SCREEN_TOP_COLOR = { 1: '#ffffff', 2: '#FF589B', 3: '#78D119', 4: '#FFFEEE' }
+const SCREEN_BOTTOM_COLOR = { 1: '#ffffff', 2: '#FFB962', 3: '#FFF827', 4: '#FFFEEE' }
 
 export default function App() {
   const [screen, setScreen] = useState(1)
   const [formKey, setFormKey] = useState(0)
 
   useEffect(() => {
-    const color = SCREEN_BG[screen] || '#fff'
-    document.body.style.background = color
-    document.documentElement.style.background = color
+    const gradient = SCREEN_GRADIENT[screen] || '#fff'
+    const topColor = SCREEN_TOP_COLOR[screen] || '#fff'
+    document.documentElement.style.background = gradient
+    document.documentElement.style.backgroundAttachment = 'fixed'
+    document.body.style.background = 'transparent'
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', color)
+    if (meta) meta.setAttribute('content', topColor)
   }, [screen])
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
@@ -672,15 +681,14 @@ Règles absolues :
     pointerEvents: screen===n ? 'all' : 'none',
   })
 
-  const screenColor = SCREEN_BG[screen] || '#fff'
-  // Screen 4 bottom matches the gradient end
-  const screenColorBottom = screen === 2 ? '#FFB962' : screen === 3 ? '#FFF827' : screenColor
+  const topColor = SCREEN_TOP_COLOR[screen] || '#fff'
+  const bottomColor = SCREEN_BOTTOM_COLOR[screen] || '#fff'
 
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden' }}>
-      {/* ── Barres safe-area : couvrent la zone derrière la chrome iOS ── */}
-      <div style={{ position:'fixed', top:0, left:0, right:0, height:'env(safe-area-inset-top)', background:screenColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
-      <div style={{ position:'fixed', bottom:0, left:0, right:0, height:'env(safe-area-inset-bottom)', background:screenColorBottom, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
+      {/* ── Barres safe-area : couleur exacte du gradient aux bords ── */}
+      <div style={{ position:'fixed', top:0, left:0, right:0, height:'env(safe-area-inset-top)', background:topColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s ease' }} />
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, height:'env(safe-area-inset-bottom)', background:bottomColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s ease' }} />
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
         <StarGrid />
