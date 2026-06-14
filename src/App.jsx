@@ -10,15 +10,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function fallbackInterpretation(score, p1Name, p2Name) {
   if (score >= 75) {
-    return `${p1Name} et ${p2Name} avancent au même rythme sans avoir à se forcer : les idées de l'un trouvent un écho chez l'autre, et les silences ne pèsent jamais. Peu de friction, beaucoup de fluidité. Un lien qui demande peu d'efforts pour tenir.`
+    return `${p1Name} et ${p2Name} se comprennent facilement et avancent dans le même sens sans avoir à se forcer. Le principal risque est de ne pas exprimer les désaccords, en supposant que l'autre pense pareil. Conseil : prenez l'habitude de vérifier à voix haute plutôt que de supposer.`
   }
   if (score >= 55) {
-    return `${p1Name} lance, ${p2Name} tempère — et c'est souvent là que ça marche : l'un ose, l'autre stabilise. Quelques accrochages sur le rythme et les non-dits sont à prévoir. Si chacun écoute la cadence de l'autre, le lien tient.`
+    return `${p1Name} et ${p2Name} se complètent bien sur l'essentiel, même si leurs rythmes et priorités diffèrent parfois. Les tensions surviennent surtout quand l'un attend que l'autre prenne l'initiative et que l'autre attend qu'on lui demande. Conseil : soyez directs sur vos attentes, ne comptez pas sur les sous-entendus.`
   }
   if (score >= 40) {
-    return `${p1Name} et ${p2Name} ne fonctionnent pas pareil : ce qui motive l'un peut lasser l'autre. Le terrain commun existe mais se construit. Il faudra de la patience et des vrais échanges plutôt que des suppositions.`
+    return `${p1Name} et ${p2Name} fonctionnent assez différemment, ce qui crée autant d'opportunités que de frictions. Ce qui motive l'un peut fatiguer l'autre, et les malentendus sont fréquents sans efforts de clarté. Conseil : définissez clairement les rôles de chacun dès le départ pour éviter les frustrations.`
   }
-  return `${p1Name} et ${p2Name} avancent sur des chemins différents, avec des rythmes et des priorités qui se croisent peu. Le lien est possible, mais il demande des efforts constants et beaucoup de clarté pour ne pas s'épuiser.`
+  return `${p1Name} et ${p2Name} ont des approches très différentes qui demandent beaucoup d'ajustements. Sans communication régulière, les incompréhensions s'accumulent rapidement. Conseil : investissez dans des points réguliers pour aligner vos attentes, sinon la relation s'épuise.`
 }
 
 async function generateInterpretation(prompt, score, p1Name, p2Name) {
@@ -154,18 +154,18 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
     clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`, { headers: { 'Accept-Language':'fr' } })
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&featuretype=city`, { headers: { 'Accept-Language':'fr' } })
         const data = await res.json()
         const seen = {}
         const items = data.map(p => {
-          const city = p.address.city||p.address.town||p.address.village||p.display_name.split(',')[0].trim()
+          const city = p.address.city||p.address.town||p.address.village||p.address.municipality||p.display_name.split(',')[0].trim()
           const country = p.address.country||''
           return city+(country?', '+country:'')
         }).filter(l => { if(seen[l]) return false; seen[l]=1; return true })
         setSuggestions(items)
         setShowDrop(items.length > 0)
       } catch { setSuggestions([]); setShowDrop(false) }
-    }, 400)
+    }, 100)
   }
 
   function pick(s) {
@@ -237,7 +237,18 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
         enterKeyHint="next"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
-        onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,8); onDateChange(d) }}
+        onChange={e => {
+          let d = e.target.value.replace(/\D/g,'').slice(0,8)
+          // jour : 1er chiffre max 3
+          if (d.length >= 1 && parseInt(d[0]) > 3) d = '3' + d.slice(1)
+          // jour : 01–31
+          if (d.length >= 2) { const j=parseInt(d.slice(0,2)); if(j===0) d='01'+d.slice(2); else if(j>31) d='31'+d.slice(2) }
+          // mois : 1er chiffre max 1
+          if (d.length >= 3 && parseInt(d[2]) > 1) d = d.slice(0,2)+'1'+d.slice(3)
+          // mois : 01–12
+          if (d.length >= 4) { const m=parseInt(d.slice(2,4)); if(m===0) d=d.slice(0,2)+'01'+d.slice(4); else if(m>12) d=d.slice(0,2)+'12'+d.slice(4) }
+          onDateChange(d)
+        }}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onEnter?.() } }}
         onBlur={() => setActive(false)} />
     </div>
@@ -265,7 +276,16 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
         enterKeyHint="done"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
-        onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,4); onTimeChange(d) }}
+        onChange={e => {
+          let d = e.target.value.replace(/\D/g,'').slice(0,4)
+          // heure : 1er chiffre max 2
+          if (d.length >= 1 && parseInt(d[0]) > 2) d = '2' + d.slice(1)
+          // heure : 00–23
+          if (d.length >= 2) { const h=parseInt(d.slice(0,2)); if(h>23) d='23'+d.slice(2) }
+          // minutes : 1er chiffre max 5
+          if (d.length >= 3 && parseInt(d[2]) > 5) d = d.slice(0,2)+'5'+d.slice(3)
+          onTimeChange(d)
+        }}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onEnter?.() } }}
         onBlur={() => setActive(false)} />
     </div>
@@ -286,7 +306,7 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, 
 
       <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center', ...bgStyle }} />
 
-      {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', textAlign:'center' }}>{deco}</div>}
+      {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
 
       {[126,194,262,330].map(t => (
         <div key={t} style={{ position:'absolute', width:322, height:55, left:'calc(50% - 161px)', top:t, background:'#FFF', filter:'blur(12.65px)', borderRadius:100 }} />
@@ -298,7 +318,7 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, 
       <FieldTime  top={330} label={labels[3]} timeRaw={data.timeRaw} onTimeChange={v => onChange('timeRaw', v)} onEnter={onSubmit} inputRef={refTime} />
 
       {error && (
-        <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:'#a0485a', textAlign:'center' }}>{error}</div>
+        <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>
       )}
 
       <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
@@ -468,23 +488,16 @@ export default function App() {
         p1.prenom, p2.prenom
       )
 
-      const prompt = `Tu analyses la compatibilité GÉNÉRALE entre deux personnes (pas amoureuse : leur façon de fonctionner ensemble au quotidien, en amitié, au travail, dans la vie).
-
-Voici leurs données :
+      const prompt = `Analyse la compatibilité entre ${p1.prenom} et ${p2.prenom} à partir de ces données astrologiques :
 ${astroSummary}
-
 Score : ${score}/100
 
-Écris un texte TRÈS COURT (3 à 4 phrases maximum). Règles strictes :
-- Utilise les prénoms : ${p1.prenom} et ${p2.prenom}.
-- Décris CONCRÈTEMENT leur dynamique : qui fait quoi, comment ils se complètent ou s'opposent dans la vraie vie.
-- Nomme le point de friction réel, puis la condition pour que le lien fonctionne.
-- Ton poétique, élégant et beau, mais SOBRE — pas de blabla, chaque phrase doit être utile et applicable.
-- N'utilise JAMAIS de vocabulaire astrologique (pas de "Soleil", "Lune", "aspect", "trigone", "signe", etc.). Traduis tout en traits de caractère et comportements concrets.
-- Cohérent avec le score de ${score}%.
-- Pas de titre, pas d'emoji. Réponds uniquement avec le texte.
+Écris exactement 3 phrases, sans titre ni emoji. Règles :
+1. Phrase 1 — leur force principale ensemble : ce qui fonctionne naturellement bien entre eux.
+2. Phrase 2 — le point de friction concret : ce qui peut coincer et pourquoi.
+3. Phrase 3 — un conseil pratique et direct pour que ça marche mieux.
 
-Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est justement là que ça marche : l'une lance les idées, l'autre les pose. Attendez-vous à des élans freinés et des silences mal lus. Le vrai test sera la patience : si chacun respecte le rythme de l'autre, ce lien tient. Sinon il s'épuise."`
+Ton : clair, direct, utile. Pas de métaphores ni de poésie. Utilise leurs prénoms. Zéro vocabulaire astrologique.`
       const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)
@@ -553,14 +566,16 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(4) }}>
 
         {loading && (
-          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
+          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', background:'#FFFEEE', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
             <div style={{ fontSize:32, color:'#795275', animation:'spin 3s linear infinite' }}>✦</div>
-            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, color:'#795275', letterSpacing:'-0.04em' }}>les astres lisent vos destins…</p>
+            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, color:'#795275', letterSpacing:'-0.04em' }}>
+              nous calculons votre compatibilité<span className="dots" />
+            </p>
           </div>
         )}
 
         {!loading && result && !result.error && (
-          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
+          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
               <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
               <div style={{ display:'flex', alignItems:'flex-start' }}>
@@ -592,7 +607,11 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+        .dots::after { content:''; animation: dots 1.5s steps(4,end) infinite; }
+        @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+      `}</style>
     </div>
   )
 }
