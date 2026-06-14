@@ -489,9 +489,8 @@ function StarGrid() {
       twinkleTimer = setTimeout(twinkle, 80 + Math.random() * 250)
     }
 
-    function onMouseOver(e) {
-      const cell = e.target
-      if (!cell.dataset.baseColor) return
+    function paintCell(cell) {
+      if (!cell || !cell.dataset.baseColor) return
       cell.textContent = STAR_SYMBOLS[Math.floor(Math.random() * STAR_SYMBOLS.length)]
       const color = HOVER_COLORS[hoverIdx++ % HOVER_COLORS.length]
       cell.style.color = color
@@ -499,15 +498,34 @@ function StarGrid() {
       cell.style.transform = 'scale(1.3)'
     }
 
+    function onMouseOver(e) { paintCell(e.target) }
+
+    function onTouchMove(e) {
+      e.preventDefault()
+      const touch = e.touches[0]
+      const el = document.elementFromPoint(touch.clientX, touch.clientY)
+      if (el && el.dataset.baseColor) paintCell(el)
+    }
+
+    function onTouchStart(e) {
+      const touch = e.touches[0]
+      const el = document.elementFromPoint(touch.clientX, touch.clientY)
+      if (el && el.dataset.baseColor) paintCell(el)
+    }
+
     build()
     twinkle()
     container.addEventListener('mouseover', onMouseOver)
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
     const ro = new ResizeObserver(build)
     ro.observe(container)
 
     return () => {
       clearTimeout(twinkleTimer)
       container.removeEventListener('mouseover', onMouseOver)
+      container.removeEventListener('touchmove', onTouchMove)
+      container.removeEventListener('touchstart', onTouchStart)
       ro.disconnect()
     }
   }, [])
@@ -621,8 +639,6 @@ Ton : clair, direct, utile. Pas de métaphores ni de poésie. Utilise leurs pré
 
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
-      <SparkCursor />
-
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
         <StarGrid />
