@@ -194,17 +194,16 @@ function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef 
 // ── Champ date ────────────────────────────────────────────────────────────────
 
 function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
-  const [active, setActive] = useState(false)
+  const [hasVal, setHasVal] = useState(!!dateRaw)
   const localRef = useRef(null)
   const ref = inputRef || localRef
-  const display = dateFmt(dateRaw)
 
   return (
     <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
-      {!dateRaw && !active && <span style={LABEL_STYLE}>{label}</span>}
-      <input ref={ref} type="text" inputMode="numeric" value={display} enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setActive(true)}
-        onBlur={() => setActive(false)}
+      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      <input ref={ref} type="text" inputMode="numeric" defaultValue={dateFmt(dateRaw)} enterKeyHint="next" style={INPUT_STYLE}
+        onFocus={() => setHasVal(true)}
+        onBlur={() => setHasVal(!!ref.current?.value)}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,8)
           if (d.length>=1 && parseInt(d[0])>3) d='3'+d.slice(1)
@@ -212,9 +211,16 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
           if (d.length>=3 && parseInt(d[2])>1) d=d.slice(0,2)+'1'+d.slice(3)
           if (d.length>=4) { const m=parseInt(d.slice(2,4)); if(m===0) d=d.slice(0,2)+'01'+d.slice(4); else if(m>12) d=d.slice(0,2)+'12'+d.slice(4) }
           onDateChange(d)
+          e.target.value = dateFmt(d)
+          setHasVal(!!d)
         }}
         onKeyDown={e => {
-          if (e.key==='Backspace' && display.endsWith('/')) { e.preventDefault(); onDateChange(dateRaw.slice(0,-1)) }
+          if (e.key==='Backspace' && (ref.current?.value||'').endsWith('/')) {
+            e.preventDefault()
+            const newRaw = dateRaw.slice(0,-1)
+            onDateChange(newRaw)
+            if (ref.current) ref.current.value = dateFmt(newRaw)
+          }
           if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() }
         }}
       />
@@ -225,26 +231,32 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
 // ── Champ heure ───────────────────────────────────────────────────────────────
 
 function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
-  const [active, setActive] = useState(false)
+  const [hasVal, setHasVal] = useState(!!timeRaw)
   const localRef = useRef(null)
   const ref = inputRef || localRef
-  const display = timeFmt(timeRaw)
 
   return (
     <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
-      {!timeRaw && !active && <span style={LABEL_STYLE}>{label}</span>}
-      <input ref={ref} type="text" inputMode="numeric" value={display} enterKeyHint="done" style={INPUT_STYLE}
-        onFocus={() => setActive(true)}
-        onBlur={() => setActive(false)}
+      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      <input ref={ref} type="text" inputMode="numeric" defaultValue={timeFmt(timeRaw)} enterKeyHint="done" style={INPUT_STYLE}
+        onFocus={() => setHasVal(true)}
+        onBlur={() => setHasVal(!!ref.current?.value)}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,4)
           if (d.length>=1 && parseInt(d[0])>2) d='2'+d.slice(1)
           if (d.length>=2) { const h=parseInt(d.slice(0,2)); if(h>23) d='23'+d.slice(2) }
           if (d.length>=3 && parseInt(d[2])>5) d=d.slice(0,2)+'5'+d.slice(3)
           onTimeChange(d)
+          e.target.value = timeFmt(d)
+          setHasVal(!!d)
         }}
         onKeyDown={e => {
-          if (e.key==='Backspace' && display.endsWith(':')) { e.preventDefault(); onTimeChange(timeRaw.slice(0,-1)) }
+          if (e.key==='Backspace' && (ref.current?.value||'').endsWith(':')) {
+            e.preventDefault()
+            const newRaw = timeRaw.slice(0,-1)
+            onTimeChange(newRaw)
+            if (ref.current) ref.current.value = timeFmt(newRaw)
+          }
           if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() }
         }}
       />
