@@ -672,8 +672,15 @@ Règles absolues :
     pointerEvents: screen===n ? 'all' : 'none',
   })
 
+  const screenColor = SCREEN_BG[screen] || '#fff'
+  // Screen 4 bottom matches the gradient end
+  const screenColorBottom = screen === 2 ? '#FFB962' : screen === 3 ? '#FFF827' : screenColor
+
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden' }}>
+      {/* ── Barres safe-area : couvrent la zone derrière la chrome iOS ── */}
+      <div style={{ position:'fixed', top:0, left:0, right:0, height:'env(safe-area-inset-top)', background:screenColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, height:'env(safe-area-inset-bottom)', background:screenColorBottom, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
         <StarGrid />
