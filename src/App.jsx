@@ -9,16 +9,16 @@ const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function fallbackInterpretation(score, p1Name, p2Name) {
-  if (score >= 75) {
-    return `${p1Name} et ${p2Name} se comprennent facilement et avancent dans le même sens sans avoir à se forcer. Le principal risque est de ne pas exprimer les désaccords, en supposant que l'autre pense pareil. Conseil : prenez l'habitude de vérifier à voix haute plutôt que de supposer.`
+  if (score >= 80) {
+    return `${p1Name} et ${p2Name} partagent une vraie fluidité — les mots viennent naturellement, les silences aussi. C'est le genre de lien où l'on n'a pas besoin de tout expliquer pour être compris. Profitez-en : c'est rare.`
   }
-  if (score >= 55) {
-    return `${p1Name} et ${p2Name} se complètent bien sur l'essentiel, même si leurs rythmes et priorités diffèrent parfois. Les tensions surviennent surtout quand l'un attend que l'autre prenne l'initiative et que l'autre attend qu'on lui demande. Conseil : soyez directs sur vos attentes, ne comptez pas sur les sous-entendus.`
+  if (score >= 65) {
+    return `${p1Name} et ${p2Name} fonctionnent bien ensemble, avec une vraie complémentarité qui compense leurs différences. Quelques ajustements de rythme suffiront à rendre cette relation très solide. Le potentiel est là, il demande juste un peu d'attention.`
   }
-  if (score >= 40) {
-    return `${p1Name} et ${p2Name} fonctionnent assez différemment, ce qui crée autant d'opportunités que de frictions. Ce qui motive l'un peut fatiguer l'autre, et les malentendus sont fréquents sans efforts de clarté. Conseil : définissez clairement les rôles de chacun dès le départ pour éviter les frustrations.`
+  if (score >= 50) {
+    return `${p1Name} et ${p2Name} ont suffisamment en commun pour construire quelque chose de beau, même si leurs approches diffèrent parfois. Ce qui peut sembler être une friction est souvent ce qui les fait grandir l'un l'autre. Avec de la bienveillance, cette relation peut devenir une vraie force.`
   }
-  return `${p1Name} et ${p2Name} ont des approches très différentes qui demandent beaucoup d'ajustements. Sans communication régulière, les incompréhensions s'accumulent rapidement. Conseil : investissez dans des points réguliers pour aligner vos attentes, sinon la relation s'épuise.`
+  return `${p1Name} et ${p2Name} ont des personnalités distinctes qui se complètent de façon inattendue. Les différences demandent plus d'efforts de communication, mais elles apportent aussi de la richesse. Une relation qui grandit avec le temps.`
 }
 
 async function generateInterpretation(prompt, score, p1Name, p2Name) {
@@ -629,22 +629,22 @@ export default function App() {
         p1.prenom, p2.prenom
       )
 
-      const prompt = `Tu es un astrologue expert en synastrie occidentale. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
+      const prompt = `Tu es un astrologue bienveillant spécialisé en synastrie occidentale. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
 
 ${astroSummary}
 
 Score global : ${score}/100
 
 Écris exactement 3 phrases séparées par un saut de ligne. Pas de titre, pas d'emoji, pas de numéros, pas de tirets.
-— Phrase 1 : ce qui fonctionne naturellement entre eux.
-— Phrase 2 : le principal point de friction.
-— Phrase 3 : un conseil concret et honnête.
+— Phrase 1 : la force principale de ce lien, ce qui les attire et les unit.
+— Phrase 2 : un défi à surmonter ensemble (formulé de façon constructive, pas négative).
+— Phrase 3 : un encouragement sincère et un conseil pour faire durer ce lien.
 
 Règles absolues :
 - Utilise leurs prénoms (${p1.prenom} et ${p2.prenom}).
 - Zéro vocabulaire astrologique (pas de signe, trigone, aspect, maison, planète).
-- Sois honnête : si la compatibilité est faible, dis-le clairement.
-- Phrases courtes, directes, sans métaphores.`
+- Ton chaleureux et positif — même si le score est moyen, il y a toujours quelque chose de beau à souligner.
+- Phrases courtes, directes, sans métaphores lourdes.`
       const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)

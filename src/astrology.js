@@ -38,15 +38,15 @@ function getAspectKey(name) {
 
 // Score de base d'un aspect (delta pur, hors poids planétaire)
 const ASPECT_DELTA = {
-  trine:        +12,
-  sextile:      +7,
+  trine:        +14,
+  sextile:      +9,
   conjunction:  0,    // dépend des planètes (voir ci-dessous)
-  opposition:   -6,
-  square:       -10,
-  quincunx:     -4,
-  semisextile:  +2,
-  semisquare:   -3,
-  sesquisquare: -3,
+  opposition:   -3,
+  square:       -5,
+  quincunx:     -2,
+  semisextile:  +3,
+  semisquare:   -1,
+  sesquisquare: -1,
 }
 
 // Pour les conjonctions : delta spécifique selon la paire (ordre canonique)
@@ -63,13 +63,13 @@ const CONJ_DELTA = {
   'asc-sun':      +8,
   'asc-moon':     +8,
   'asc-venus':    +9,
-  'mars-mars':    -8,   // conflits
-  'saturn-sun':   -12,  // restriction / pression
-  'saturn-moon':  -14,  // froid émotionnel
-  'saturn-venus': -10,  // distance affective
-  'saturn-mars':  -8,
-  'pluto-moon':   -10,
-  'pluto-sun':    -6,
+  'mars-mars':    -3,   // conflits
+  'saturn-sun':   -5,   // restriction / pression
+  'saturn-moon':  -6,   // froid émotionnel
+  'saturn-venus': -4,   // distance affective
+  'saturn-mars':  -3,
+  'pluto-moon':   -4,
+  'pluto-sun':    -2,
 }
 
 // Appartenance à une dimension (paire canonique → dimension)
@@ -195,9 +195,9 @@ export function calculateScore(aspects, synData) {
 
   const total = compositeRaw + elemBonus
 
-  // Ramène à 0–100 : base 50, clamp entre 10 et 97
-  const score = Math.round(50 + total)
-  return Math.min(97, Math.max(10, score))
+  // Ramène à 0–100 : base 60, clamp entre 20 et 97
+  const score = Math.round(60 + total)
+  return Math.min(97, Math.max(20, score))
 }
 
 // ── Résumé textuel pour le prompt IA ─────────────────────────────────────────
