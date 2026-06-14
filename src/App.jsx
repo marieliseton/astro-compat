@@ -212,8 +212,6 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
           if (d.length>=3 && parseInt(d[2])>1) d=d.slice(0,2)+'1'+d.slice(3)
           if (d.length>=4) { const m=parseInt(d.slice(2,4)); if(m===0) d=d.slice(0,2)+'01'+d.slice(4); else if(m>12) d=d.slice(0,2)+'12'+d.slice(4) }
           onDateChange(d)
-          const nd = dateFmt(d)
-          requestAnimationFrame(() => ref.current?.setSelectionRange(nd.length, nd.length))
         }}
         onKeyDown={e => {
           if (e.key==='Backspace' && display.endsWith('/')) { e.preventDefault(); onDateChange(dateRaw.slice(0,-1)) }
@@ -244,8 +242,6 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
           if (d.length>=2) { const h=parseInt(d.slice(0,2)); if(h>23) d='23'+d.slice(2) }
           if (d.length>=3 && parseInt(d[2])>5) d=d.slice(0,2)+'5'+d.slice(3)
           onTimeChange(d)
-          const nd = timeFmt(d)
-          requestAnimationFrame(() => ref.current?.setSelectionRange(nd.length, nd.length))
         }}
         onKeyDown={e => {
           if (e.key==='Backspace' && display.endsWith(':')) { e.preventDefault(); onTimeChange(timeRaw.slice(0,-1)) }
