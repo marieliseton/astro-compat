@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { calculateScore, buildAstroSummary } from './astrology.js'
 import bg1 from './assets/bg1.png'
 import bg2 from './assets/bg2.png'
@@ -311,6 +311,96 @@ function FormScreen({ visible, bgStyle, deco, labels, data, onChange, onSubmit, 
   )
 }
 
+// ── Spark cursor ──
+function SparkCursor() {
+  useEffect(() => {
+    const canvas = document.createElement('canvas')
+    canvas.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:99999'
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    document.body.appendChild(canvas)
+    const ctx = canvas.getContext('2d')
+
+    const onResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
+    window.addEventListener('resize', onResize)
+
+    const particles = []
+
+    function drawStar(x, y, r, alpha) {
+      const inner = r * 0.3
+      ctx.save()
+      ctx.globalAlpha = alpha
+      ctx.translate(x, y)
+      ctx.rotate(Math.PI / 4)
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 3)
+      glow.addColorStop(0, 'rgba(255,210,60,0.35)')
+      glow.addColorStop(1, 'rgba(255,180,0,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 3, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      for (let i = 0; i < 8; i++) {
+        const rad = i % 2 === 0 ? r : inner
+        const angle = (i * Math.PI) / 4
+        i === 0 ? ctx.moveTo(Math.cos(angle) * rad, Math.sin(angle) * rad)
+                : ctx.lineTo(Math.cos(angle) * rad, Math.sin(angle) * rad)
+      }
+      ctx.closePath()
+      const grad = ctx.createLinearGradient(-r, -r, r, r)
+      grad.addColorStop(0, '#fffbe0')
+      grad.addColorStop(0.4, '#ffd84d')
+      grad.addColorStop(1, '#c8860a')
+      ctx.fillStyle = grad
+      ctx.fill()
+      ctx.restore()
+    }
+
+    function spawnSpark(x, y) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * 2 + 0.5
+      particles.push({
+        x, y,
+        r: Math.random() * 2.5 + 1,
+        alpha: Math.random() * 0.4 + 0.6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5,
+        decay: Math.random() * 0.008 + 0.005,
+      })
+    }
+
+    const onMouseMove = (e) => { for (let i = 0; i < 6; i++) spawnSpark(e.clientX, e.clientY) }
+    window.addEventListener('mousemove', onMouseMove)
+
+    let raf
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]
+        p.vy += 0.07
+        p.x += p.vx
+        p.y += p.vy
+        p.vx *= 0.99
+        p.alpha -= p.decay
+        p.r *= 0.993
+        if (p.alpha <= 0 || p.r < 0.3) { particles.splice(i, 1); continue }
+        drawStar(p.x, p.y, p.r, Math.max(0, p.alpha))
+      }
+      raf = requestAnimationFrame(animate)
+    }
+    animate()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('mousemove', onMouseMove)
+      document.body.removeChild(canvas)
+    }
+  }, [])
+
+  return null
+}
+
 // ── App principale ──
 export default function App() {
   const [screen, setScreen] = useState(1)
@@ -424,6 +514,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
 
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
+      <SparkCursor />
 
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FBF2DB', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
