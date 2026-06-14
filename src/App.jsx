@@ -1,7 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { calculateScore, buildAstroSummary } from './astrology.js'
-import bg1 from './assets/bg1.png'
-import bg2 from './assets/bg2.png'
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || ''
@@ -275,7 +273,7 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
 }
 
 // ── Écran formulaire ──
-function FormScreen({ visible, bgStyle, deco, labels, data, onChange, onSubmit, error }) {
+function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onSubmit, error }) {
   const refVille = useRef(null)
   const refDate = useRef(null)
   const refTime = useRef(null)
@@ -303,12 +301,102 @@ function FormScreen({ visible, bgStyle, deco, labels, data, onChange, onSubmit, 
         <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:'#a0485a', textAlign:'center' }}>{error}</div>
       )}
 
-      <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+      <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
         valider
-        <span style={{ display:'block', width:50, height:1, background:'#000' }} />
+        <span style={{ display:'block', width:50, height:1, background:ctaColor||'#000' }} />
       </button>
     </div>
   )
+}
+
+// ── Spark cursor ──
+function SparkCursor() {
+  useEffect(() => {
+    const canvas = document.createElement('canvas')
+    canvas.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:99999'
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    document.body.appendChild(canvas)
+    const ctx = canvas.getContext('2d')
+
+    const onResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
+    window.addEventListener('resize', onResize)
+
+    const particles = []
+
+    function drawStar(x, y, r, alpha) {
+      const inner = r * 0.3
+      ctx.save()
+      ctx.globalAlpha = alpha
+      ctx.translate(x, y)
+      ctx.rotate(Math.PI / 4)
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 3)
+      glow.addColorStop(0, 'rgba(255,210,60,0.35)')
+      glow.addColorStop(1, 'rgba(255,180,0,0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 3, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      for (let i = 0; i < 8; i++) {
+        const rad = i % 2 === 0 ? r : inner
+        const angle = (i * Math.PI) / 4
+        i === 0 ? ctx.moveTo(Math.cos(angle) * rad, Math.sin(angle) * rad)
+                : ctx.lineTo(Math.cos(angle) * rad, Math.sin(angle) * rad)
+      }
+      ctx.closePath()
+      const grad = ctx.createLinearGradient(-r, -r, r, r)
+      grad.addColorStop(0, '#fffbe0')
+      grad.addColorStop(0.4, '#ffd84d')
+      grad.addColorStop(1, '#c8860a')
+      ctx.fillStyle = grad
+      ctx.fill()
+      ctx.restore()
+    }
+
+    function spawnSpark(x, y) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = Math.random() * 2 + 0.5
+      particles.push({
+        x, y,
+        r: Math.random() * 2.5 + 1,
+        alpha: Math.random() * 0.4 + 0.6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5,
+        decay: Math.random() * 0.008 + 0.005,
+      })
+    }
+
+    const onMouseMove = (e) => { for (let i = 0; i < 6; i++) spawnSpark(e.clientX, e.clientY) }
+    window.addEventListener('mousemove', onMouseMove)
+
+    let raf
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]
+        p.vy += 0.07
+        p.x += p.vx
+        p.y += p.vy
+        p.vx *= 0.99
+        p.alpha -= p.decay
+        p.r *= 0.993
+        if (p.alpha <= 0 || p.r < 0.3) { particles.splice(i, 1); continue }
+        drawStar(p.x, p.y, p.r, Math.max(0, p.alpha))
+      }
+      raf = requestAnimationFrame(animate)
+    }
+    animate()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('mousemove', onMouseMove)
+      document.body.removeChild(canvas)
+    }
+  }, [])
+
+  return null
 }
 
 // ── App principale ──
@@ -424,11 +512,11 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
 
   return (
     <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, overflow:'hidden', background:'#FBF2DB' }}>
+      <SparkCursor />
 
       {/* ── SCREEN 1 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FBF2DB', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
-        <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', backgroundImage:`url(${bg1})`, backgroundSize:'cover', backgroundPosition:'center' }} />
-        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'38%', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#565454' }}>
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFFFF', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
+        <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#565454' }}>
           Découvrez votre compatibilité astral
         </div>
         <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
@@ -441,8 +529,9 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
       <FormScreen
         key={`s2-${formKey}`}
         visible={screen===2}
-        bgStyle={{ backgroundImage:`url(${bg2})`, background:`linear-gradient(0deg, rgba(255,225,249,0.2), rgba(255,225,249,0.2)) url(${bg2})` }}
+        bgStyle={{ background:'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)' }}
         deco="₊˚⊹☆"
+        ctaColor="#FFFBC9"
         labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
         data={p1} onChange={updateP1} error={error1}
         onSubmit={() => { if(validateP1()) setScreen(3) }}
@@ -452,16 +541,16 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
       <FormScreen
         key={`s3-${formKey}`}
         visible={screen===3}
-        bgStyle={{ background:`linear-gradient(0deg, #FFFEEE, #FFFEEE) url(${bg2})`, backgroundSize:'cover' }}
+        bgStyle={{ background:'linear-gradient(180deg, #78D119 0%, #FFF827 100%)' }}
         deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩"
+        ctaColor="#000000"
         labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
         data={p2} onChange={updateP2} error={error2}
         onSubmit={() => { if(validateP2()) calculate() }}
       />
 
       {/* ── SCREEN 4 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FBF2DB', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(4) }}>
-        <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', background:'linear-gradient(0deg, #FFFEEE, #FFFEEE)' }} />
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(4) }}>
 
         {loading && (
           <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
