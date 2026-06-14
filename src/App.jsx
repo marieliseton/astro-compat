@@ -253,7 +253,7 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
       <input ref={ref} type="text" inputMode="numeric" maxLength={8}
         value={dateRaw}
         enterKeyHint="next"
-        style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
+        style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text', caretColor:'transparent' }}
         onFocus={() => setActive(true)}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,8)
@@ -292,7 +292,7 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
       <input ref={ref} type="text" inputMode="numeric" maxLength={4}
         value={timeRaw}
         enterKeyHint="done"
-        style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
+        style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text', caretColor:'transparent' }}
         onFocus={() => setActive(true)}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,4)
