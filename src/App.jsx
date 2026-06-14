@@ -6,13 +6,10 @@ import bg2 from './assets/bg2.png'
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || ''
 
-// Modèles essayés dans l'ordre. Si l'un est saturé (429), on passe au suivant.
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// Interprétation de secours générée localement (aucun appel réseau).
-// Garantit que l'application fonctionne même quand Gemini est saturé.
 function fallbackInterpretation(score, p1Name, p2Name) {
   if (score >= 75) {
     return `${p1Name} et ${p2Name} avancent au même rythme sans avoir à se forcer : les idées de l'un trouvent un écho chez l'autre, et les silences ne pèsent jamais. Peu de friction, beaucoup de fluidité. Un lien qui demande peu d'efforts pour tenir.`
@@ -26,10 +23,6 @@ function fallbackInterpretation(score, p1Name, p2Name) {
   return `${p1Name} et ${p2Name} avancent sur des chemins différents, avec des rythmes et des priorités qui se croisent peu. Le lien est possible, mais il demande des efforts constants et beaucoup de clarté pour ne pas s'épuiser.`
 }
 
-// Appelle Gemini avec gestion du 429 (quota / limite de débit) :
-// - réessaie avec une attente croissante,
-// - bascule sur un autre modèle si besoin,
-// - remonte le vrai message d'erreur de Google.
 async function generateInterpretation(prompt, score, p1Name, p2Name) {
   if (!GEMINI_KEY) {
     return { texte: fallbackInterpretation(score, p1Name, p2Name), source: 'fallback', reason: 'VITE_GEMINI_KEY manquante' }
@@ -54,20 +47,17 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
           const texte = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
           if (texte) return { texte, source: 'gemini' }
           lastError = 'Réponse vide de Gemini'
-          break // réponse vide : inutile de réessayer ce modèle
+          break
         }
 
-        // Lit le vrai message d'erreur renvoyé par Google
         const errBody = await resp.json().catch(() => ({}))
         lastError = errBody?.error?.message || `Gemini API ${resp.status}`
         console.log('[v0] Gemini error', model, resp.status, lastError)
 
-        // 429 = quota/débit dépassé -> on attend puis on réessaie / change de modèle
         if (resp.status === 429) {
           await sleep(1200 * (attempt + 1))
           continue
         }
-        // 400/403/404 = problème de clé ou de modèle -> inutile de réessayer ce modèle
         break
       } catch (e) {
         lastError = e.message
@@ -76,7 +66,6 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
     }
   }
 
-  // Tous les essais ont échoué : on renvoie le texte de secours pour ne pas casser l'app
   return {
     texte: fallbackInterpretation(score, p1Name, p2Name),
     source: 'fallback',
@@ -133,21 +122,17 @@ function FieldText({ top, label, value, onChange, onEnter, inputRef }) {
   const localRef = useRef(null)
   const ref = inputRef || localRef
   const hasValue = value.trim().length > 0
-  const show = hasValue || active
-
-  function activate() {
-    setActive(true)
-    requestAnimationFrame(() => ref.current?.focus())
-  }
+  const showLabel = !hasValue && !active
 
   return (
     <div style={{ position:'absolute', left:'calc(50% - 161px)', top, width:322, height:55, display:'flex', alignItems:'center', paddingLeft:30, cursor:'text' }}
-      onClick={activate}>
-      {!show && (
-        <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', pointerEvents:'none', whiteSpace:'nowrap' }}>{label}</span>
+      onClick={() => ref.current?.focus()}>
+      {showLabel && (
+        <span style={{ position:'absolute', left:30, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', pointerEvents:'none', whiteSpace:'nowrap' }}>{label}</span>
       )}
       <input ref={ref} type="text" value={value}
-        style={{ display: show ? 'block':'none', fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', outline:'none', width:'100%' }}
+        enterKeyHint="next"
+        style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', outline:'none', width:'100%' }}
         onFocus={() => setActive(true)}
         onBlur={() => setActive(false)}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onEnter?.() } }}
@@ -165,7 +150,6 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
   const localRef = useRef(null)
   const ref = inputRef || localRef
   const hasValue = value.trim().length > 0
-  const show = hasValue || active
 
   async function fetchSugg(q) {
     if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
@@ -192,19 +176,17 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
     setSuggestions([])
   }
 
-  function activate() {
-    setActive(true)
-    requestAnimationFrame(() => ref.current?.focus())
-  }
+  const showLabel = !hasValue && !active
 
   return (
     <div style={{ position:'absolute', left:'calc(50% - 161px)', top, width:322, zIndex:10 }}>
-      <div style={{ height:55, display:'flex', alignItems:'center', paddingLeft:30, cursor:'text' }} onClick={activate}>
-        {!show && (
-          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', pointerEvents:'none', whiteSpace:'nowrap' }}>{label}</span>
+      <div style={{ height:55, display:'flex', alignItems:'center', paddingLeft:30, cursor:'text', position:'relative' }} onClick={() => ref.current?.focus()}>
+        {showLabel && (
+          <span style={{ position:'absolute', left:30, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', pointerEvents:'none', whiteSpace:'nowrap' }}>{label}</span>
         )}
         <input ref={ref} type="text" autoComplete="off" value={value}
-          style={{ display: show ? 'block':'none', fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', outline:'none', width:'100%' }}
+          enterKeyHint="next"
+          style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', outline:'none', width:'100%' }}
           onFocus={() => setActive(true)}
           onBlur={() => setTimeout(() => { setActive(false); setShowDrop(false) }, 200)}
           onKeyDown={e => {
@@ -252,9 +234,9 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
         <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', pointerEvents:'none' }}
           dangerouslySetInnerHTML={{ __html: renderDateMask(dateRaw) }} />
       )}
-      {/* input transparent par-dessus le champ (focusable sur iOS) */}
       <input ref={ref} type="text" inputMode="numeric" maxLength={8}
         value={dateRaw}
+        enterKeyHint="next"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
         onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,8); onDateChange(d) }}
@@ -282,6 +264,7 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
       )}
       <input ref={ref} type="text" inputMode="numeric" maxLength={4}
         value={timeRaw}
+        enterKeyHint="done"
         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', opacity:0, border:'none', background:'transparent', fontSize:16, padding:'0 30px', cursor:'text' }}
         onFocus={() => setActive(true)}
         onChange={e => { const d=e.target.value.replace(/\D/g,'').slice(0,4); onTimeChange(d) }}
@@ -303,29 +286,23 @@ function FormScreen({ visible, bgStyle, deco, labels, data, onChange, onSubmit, 
       opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none',
       transform: visible ? 'translateX(0)' : 'translateX(30px)' }}>
 
-      {/* BG */}
       <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center', ...bgStyle }} />
 
-      {/* Déco */}
       {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', textAlign:'center' }}>{deco}</div>}
 
-      {/* Blur rects */}
       {[126,194,262,330].map(t => (
         <div key={t} style={{ position:'absolute', width:322, height:55, left:'calc(50% - 161px)', top:t, background:'#FFF', filter:'blur(12.65px)', borderRadius:100 }} />
       ))}
 
-      {/* Champs */}
       <FieldText  top={126} label={labels[0]} value={data.prenom}  onChange={v => onChange('prenom', v)} onEnter={() => refVille.current?.focus()} />
       <FieldVille top={194} label={labels[1]} value={data.ville}   onChange={v => onChange('ville', v)}  onEnter={() => refDate.current?.focus()}  inputRef={refVille} />
       <FieldDate  top={262} label={labels[2]} dateRaw={data.dateRaw} onDateChange={v => onChange('dateRaw', v)} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
       <FieldTime  top={330} label={labels[3]} timeRaw={data.timeRaw} onTimeChange={v => onChange('timeRaw', v)} onEnter={onSubmit} inputRef={refTime} />
 
-      {/* Erreur */}
       {error && (
         <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:'#a0485a', textAlign:'center' }}>{error}</div>
       )}
 
-      {/* CTA */}
       <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
         valider
         <span style={{ display:'block', width:50, height:1, background:'#000' }} />
@@ -337,6 +314,7 @@ function FormScreen({ visible, bgStyle, deco, labels, data, onChange, onSubmit, 
 // ── App principale ──
 export default function App() {
   const [screen, setScreen] = useState(1)
+  const [formKey, setFormKey] = useState(0)
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [result, setResult] = useState(null)
@@ -393,7 +371,6 @@ export default function App() {
       if (!synResp.ok) throw new Error(`Astrologer API ${synResp.status}`)
       const synData = await synResp.json()
 
-      // Les aspects peuvent être à la racine ou sous chart_data selon l'endpoint
       const aspectsArr = synData?.aspects || synData?.chart_data?.aspects || synData?.data?.aspects || []
       console.log('[astro] aspects reçus:', aspectsArr.length, synData)
 
@@ -424,7 +401,6 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)
       }
-      // On affiche toujours le score : l'app ne casse plus même si Gemini est saturé (429).
       setResult({ score, texte })
     } catch(err) {
       setResult({ error: err.message })
@@ -437,6 +413,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
     setScreen(1); setResult(null)
     setP1({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
     setP2({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
+    setFormKey(k => k + 1)
   }
 
   const visible = (n) => ({
@@ -446,7 +423,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
   })
 
   return (
-    <div style={{ width:'100vw', height:'100dvh', minHeight:'100vh', position:'relative', overflow:'hidden', background:'#FBF2DB' }}>
+    <div style={{ width:'100vw', height:'100dvh', minHeight:'100dvh', position:'relative', overflow:'hidden', background:'#FBF2DB' }}>
 
       {/* ── SCREEN 1 ── */}
       <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FBF2DB', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(1) }}>
@@ -462,6 +439,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
 
       {/* ── SCREEN 2 ── */}
       <FormScreen
+        key={`s2-${formKey}`}
         visible={screen===2}
         bgStyle={{ backgroundImage:`url(${bg2})`, background:`linear-gradient(0deg, rgba(255,225,249,0.2), rgba(255,225,249,0.2)) url(${bg2})` }}
         deco="₊˚⊹☆"
@@ -472,6 +450,7 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
 
       {/* ── SCREEN 3 ── */}
       <FormScreen
+        key={`s3-${formKey}`}
         visible={screen===3}
         bgStyle={{ background:`linear-gradient(0deg, #FFFEEE, #FFFEEE) url(${bg2})`, backgroundSize:'cover' }}
         deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩"
@@ -487,18 +466,22 @@ Exemple du ton voulu : "marie avance vite, koko prend son temps — et c'est jus
         {loading && (
           <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
             <div style={{ fontSize:32, color:'#795275', animation:'spin 3s linear infinite' }}>✦</div>
-            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, color:'#795275', letterSpacing:'-0.04em' }}>calcul en cours...</p>
+            <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, color:'#795275', letterSpacing:'-0.04em' }}>les astres lisent vos destins…</p>
           </div>
         )}
 
         {!loading && result && !result.error && (
-          <>
-            <div style={{ position:'absolute', width:149, left:'calc(50% - 74px)', top:95, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275' }}>votre compatibilité</div>
-            <div style={{ position:'absolute', width:200, left:'calc(50% - 130px)', top:182, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:200, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275' }}>{result.score}</div>
-            <div style={{ position:'absolute', width:73, left:'calc(50% + 70px)', top:163, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'50px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275' }}>%</div>
-            <div style={{ position:'absolute', width:'min(353px, 90vw)', left:'50%', transform:'translateX(-50%)', top:344, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:34, lineHeight:'42px', letterSpacing:'-0.04em', color:'#795275', overflow:'hidden', maxHeight:490 }}>{result.texte}</div>
-            <button onClick={restart} style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', bottom:80, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
-          </>
+          <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
+              <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
+              <div style={{ display:'flex', alignItems:'flex-start' }}>
+                <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:160, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275' }}>{result.score}</div>
+                <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:36, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275', marginTop:18 }}>%</div>
+              </div>
+              <div style={{ width:'min(353px, 88vw)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'34px', letterSpacing:'-0.04em', color:'#795275', marginTop:32, textAlign:'left' }}>{result.texte}</div>
+              <button onClick={restart} style={{ marginTop:48, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
+            </div>
+          </div>
         )}
 
         {!loading && result?.error && (
