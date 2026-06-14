@@ -140,7 +140,7 @@ function FieldText({ top, label, value, onChange, onEnter, inputRef }) {
 }
 
 // ── Champ ville ──
-function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
+function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef }) {
   const [active, setActive] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
@@ -170,6 +170,7 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
 
   function pick(s) {
     onChange(s)
+    onConfirm(s)   // signale que la ville a été choisie dans le dropdown
     setShowDrop(false)
     setSuggestions([])
   }
@@ -190,20 +191,23 @@ function FieldVille({ top, label, value, onChange, onEnter, inputRef }) {
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              if (showDrop && suggestions.length > 0) pick(suggestions[0])
-              else onEnter?.()
+              if (showDrop && suggestions.length > 0) { pick(suggestions[0]); onEnter?.() }
             } else if (e.key === 'Tab') {
               e.preventDefault()
               if (showDrop && suggestions.length > 0) pick(suggestions[0])
               onEnter?.()
             }
           }}
-          onChange={e => { onChange(e.target.value); fetchSugg(e.target.value) }} />
+          onChange={e => {
+            onChange(e.target.value)
+            onConfirm(null)  // reset confirmation quand l'utilisateur tape manuellement
+            fetchSugg(e.target.value)
+          }} />
       </div>
       {showDrop && (
         <div style={{ position:'absolute', top:55, left:0, width:'100%', background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.12)', overflow:'hidden', zIndex:100 }}>
           {suggestions.map((s,i) => (
-            <div key={i} onMouseDown={() => pick(s)}
+            <div key={i} onMouseDown={() => pick(s)} onTouchEnd={() => pick(s)}
               style={{ padding:'11px 16px', fontFamily:'-apple-system, BlinkMacSystemFont, sans-serif', fontSize:15, color:'#1c1c1e', cursor:'pointer', borderBottom: i < suggestions.length-1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}
               onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.05)'}
               onMouseLeave={e => e.currentTarget.style.background='transparent'}>
@@ -293,16 +297,15 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
 }
 
 // ── Écran formulaire ──
-function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onSubmit, error }) {
+function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onVilleConfirm, onSubmit, error }) {
   const refVille = useRef(null)
   const refDate = useRef(null)
   const refTime = useRef(null)
 
   return (
     <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden', background:'#FBF2DB',
-      transition:'opacity 0.4s ease, transform 0.4s ease',
-      opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none',
-      transform: visible ? 'translateX(0)' : 'translateX(30px)' }}>
+      transition:'opacity 0.4s ease',
+      opacity: visible ? 1 : 0, pointerEvents: visible ? 'all' : 'none' }}>
 
       <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', backgroundSize:'cover', backgroundPosition:'center', ...bgStyle }} />
 
@@ -313,7 +316,7 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, 
       ))}
 
       <FieldText  top={126} label={labels[0]} value={data.prenom}  onChange={v => onChange('prenom', v)} onEnter={() => refVille.current?.focus()} />
-      <FieldVille top={194} label={labels[1]} value={data.ville}   onChange={v => onChange('ville', v)}  onEnter={() => refDate.current?.focus()}  inputRef={refVille} />
+      <FieldVille top={194} label={labels[1]} value={data.ville} onChange={v => onChange('ville', v)} onConfirm={v => onVilleConfirm(v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
       <FieldDate  top={262} label={labels[2]} dateRaw={data.dateRaw} onDateChange={v => onChange('dateRaw', v)} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
       <FieldTime  top={330} label={labels[3]} timeRaw={data.timeRaw} onTimeChange={v => onChange('timeRaw', v)} onEnter={onSubmit} inputRef={refTime} />
 
@@ -539,6 +542,8 @@ export default function App() {
   const [formKey, setFormKey] = useState(0)
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
+  const [ville1Ok, setVille1Ok] = useState(false)
+  const [ville2Ok, setVille2Ok] = useState(false)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error1, setError1] = useState('')
@@ -549,7 +554,7 @@ export default function App() {
 
   function validateP1() {
     if (!p1.prenom.trim()) { setError1('Merci de renseigner votre prénom.'); return false }
-    if (!p1.ville.trim())  { setError1('Merci de renseigner votre ville.'); return false }
+    if (!p1.ville.trim() || !ville1Ok) { setError1('Sélectionnez une ville dans la liste.'); return false }
     if (p1.dateRaw.length < 8) { setError1('Date incomplète (JJ/MM/AAAA).'); return false }
     if (p1.timeRaw.length < 4) { setError1('Heure incomplète (hhmm).'); return false }
     setError1(''); return true
@@ -557,7 +562,7 @@ export default function App() {
 
   function validateP2() {
     if (!p2.prenom.trim()) { setError2('Merci de renseigner son prénom.'); return false }
-    if (!p2.ville.trim())  { setError2('Merci de renseigner sa ville.'); return false }
+    if (!p2.ville.trim() || !ville2Ok) { setError2('Sélectionnez une ville dans la liste.'); return false }
     if (p2.dateRaw.length < 8) { setError2('Date incomplète (JJ/MM/AAAA).'); return false }
     if (p2.timeRaw.length < 4) { setError2('Heure incomplète (hhmm).'); return false }
     setError2(''); return true
@@ -580,6 +585,8 @@ export default function App() {
         body: JSON.stringify({
           first_subject: subject1,
           second_subject: subject2,
+          zodiac_type: 'Tropic',       // astrologie occidentale (tropicale)
+          house_system: 'Placidus',    // système de maisons occidental standard
           active_points: ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Ascendant'],
           active_aspects: [
             { name: 'conjunction', orb: 8 },
@@ -602,22 +609,22 @@ export default function App() {
         p1.prenom, p2.prenom
       )
 
-      const prompt = `Tu es un astrologue expert en synastrie. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
+      const prompt = `Tu es un astrologue expert en synastrie occidentale. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
 
 ${astroSummary}
 
 Score global : ${score}/100
 
-Écris exactement 3 phrases courtes (15 mots max chacune), sans titre ni emoji.
-1. Ce qui fonctionne naturellement entre eux (leur vraie force commune).
-2. Le point de friction le plus concret et récurrent.
-3. Un conseil direct et actionnable pour mieux se comprendre.
+Écris exactement 3 phrases séparées par un saut de ligne. Pas de titre, pas d'emoji, pas de numéros, pas de tirets.
+— Phrase 1 : ce qui fonctionne naturellement entre eux.
+— Phrase 2 : le principal point de friction.
+— Phrase 3 : un conseil concret et honnête.
 
-Contraintes strictes :
-- Utilise leurs prénoms dans chaque phrase.
-- Zéro vocabulaire astrologique (pas de signe, trigone, aspect, planète).
-- Traduis tout en comportements concrets et traits de caractère.
-- Ton direct, utile, sans poésie ni fioritures.`
+Règles absolues :
+- Utilise leurs prénoms (${p1.prenom} et ${p2.prenom}).
+- Zéro vocabulaire astrologique (pas de signe, trigone, aspect, maison, planète).
+- Sois honnête : si la compatibilité est faible, dis-le clairement.
+- Phrases courtes, directes, sans métaphores.`
       const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)
@@ -634,13 +641,13 @@ Contraintes strictes :
     setScreen(1); setResult(null)
     setP1({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
     setP2({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
+    setVille1Ok(false); setVille2Ok(false)
     setFormKey(k => k + 1)
   }
 
   const visible = (n) => ({
     opacity: screen===n ? 1 : 0,
     pointerEvents: screen===n ? 'all' : 'none',
-    transform: screen===n ? 'translateX(0)' : 'translateX(30px)',
   })
 
   return (
@@ -675,7 +682,7 @@ Contraintes strictes :
         deco="₊˚⊹☆"
         ctaColor="#FFFBC9"
         labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
-        data={p1} onChange={updateP1} error={error1}
+        data={p1} onChange={updateP1} onVilleConfirm={v => setVille1Ok(!!v)} error={error1}
         onSubmit={() => { if(validateP1()) setScreen(3) }}
       />
 
@@ -687,12 +694,12 @@ Contraintes strictes :
         deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩"
         ctaColor="#000000"
         labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
-        data={p2} onChange={updateP2} error={error2}
+        data={p2} onChange={updateP2} onVilleConfirm={v => setVille2Ok(!!v)} error={error2}
         onSubmit={() => { if(validateP2()) calculate() }}
       />
 
       {/* ── SCREEN 4 ── */}
-      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s, transform 0.4s', ...visible(4) }}>
+      <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
 
         {loading && (
           <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', background:'#FFFEEE', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
