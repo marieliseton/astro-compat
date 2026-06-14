@@ -596,22 +596,28 @@ export default function App() {
       const aspectsArr = synData?.aspects || synData?.chart_data?.aspects || synData?.data?.aspects || []
       console.log('[astro] aspects reçus:', aspectsArr.length, synData)
 
-      const score = calculateScore(aspectsArr)
+      const score = calculateScore(aspectsArr, synData)
       const astroSummary = buildAstroSummary(
         { aspects: aspectsArr, first_subject: synData?.first_subject || synData?.chart_data?.first_subject, second_subject: synData?.second_subject || synData?.chart_data?.second_subject },
         p1.prenom, p2.prenom
       )
 
-      const prompt = `Analyse la compatibilité entre ${p1.prenom} et ${p2.prenom} à partir de ces données astrologiques :
+      const prompt = `Tu es un astrologue expert en synastrie. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
+
 ${astroSummary}
-Score : ${score}/100
 
-Écris exactement 3 phrases, sans titre ni emoji. Règles :
-1. Phrase 1 — leur force principale ensemble : ce qui fonctionne naturellement bien entre eux.
-2. Phrase 2 — le point de friction concret : ce qui peut coincer et pourquoi.
-3. Phrase 3 — un conseil pratique et direct pour que ça marche mieux.
+Score global : ${score}/100
 
-Ton : clair, direct, utile. Pas de métaphores ni de poésie. Utilise leurs prénoms. Zéro vocabulaire astrologique.`
+Écris exactement 3 phrases courtes (15 mots max chacune), sans titre ni emoji.
+1. Ce qui fonctionne naturellement entre eux (leur vraie force commune).
+2. Le point de friction le plus concret et récurrent.
+3. Un conseil direct et actionnable pour mieux se comprendre.
+
+Contraintes strictes :
+- Utilise leurs prénoms dans chaque phrase.
+- Zéro vocabulaire astrologique (pas de signe, trigone, aspect, planète).
+- Traduis tout en comportements concrets et traits de caractère.
+- Ton direct, utile, sans poésie ni fioritures.`
       const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
       if (source === 'fallback') {
         console.log('[v0] Interprétation de secours utilisée. Raison:', reason)
