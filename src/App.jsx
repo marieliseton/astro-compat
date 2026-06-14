@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { calculateScore, buildAstroSummary } from './astrology.js'
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
@@ -378,12 +378,7 @@ function StarGrid() {
 
 // ── Constantes écran ──────────────────────────────────────────────────────────
 
-const SCREEN_GRADIENT = {
-  1: '#ffffff',
-  2: 'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)',
-  3: 'linear-gradient(180deg, #78D119 0%, #FFF827 100%)',
-  4: '#FFFEEE',
-}
+// Couleurs par écran — source unique de vérité (reflétée dans App.css)
 const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#FFFEEE' }
 const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#FFFEEE' }
 
@@ -401,16 +396,18 @@ export default function App() {
   const [error1, setError1] = useState('')
   const [error2, setError2] = useState('')
 
-  // Sync html background + theme-color avec l'écran courant.
-  // iOS Safari ne répond pas à setAttribute sur un meta existant —
-  // on supprime et recrée le tag pour forcer la relecture du navigateur.
+  // ── iOS 26 : data-screen sur <html> avant le paint ───────────────────────
+  // useLayoutEffect est synchrone (avant que le navigateur peigne) — iOS 26
+  // Safari échantillonne body.background-color au moment du paint ; l'attribut
+  // doit donc être posé AVANT ce moment. Le CSS dans App.css se charge du reste.
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-screen', String(screen))
+  }, [screen])
+
+  // ── theme-color : Android Chrome + desktop (iOS 26 l'ignore) ─────────────
+  // On recrée le meta tag (pas juste setAttribute) pour forcer la relecture.
   useEffect(() => {
-    const gradient = SCREEN_GRADIENT[screen]
     const topColor = SCREEN_TOP[screen]
-    document.documentElement.style.background = gradient
-    document.documentElement.style.backgroundAttachment = 'fixed'
-    document.body.style.background = 'transparent'
-    // Force iOS Safari à relire le theme-color en recrééant le meta tag
     const existing = document.querySelector('meta[name="theme-color"]')
     if (existing) existing.remove()
     const meta = document.createElement('meta')
