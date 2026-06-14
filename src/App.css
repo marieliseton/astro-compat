@@ -1,0 +1,27 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  background: #FBF2DB;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  font-family: 'IM Fell DW Pica', serif;
+  background: #FBF2DB;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  html, body {
+    background: #FBF2DB;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
