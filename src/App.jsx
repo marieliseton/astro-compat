@@ -585,8 +585,6 @@ export default function App() {
         body: JSON.stringify({
           first_subject: subject1,
           second_subject: subject2,
-          zodiac_type: 'Tropic',       // astrologie occidentale (tropicale)
-          house_system: 'Placidus',    // système de maisons occidental standard
           active_points: ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Ascendant'],
           active_aspects: [
             { name: 'conjunction', orb: 8 },
