@@ -561,6 +561,8 @@ export default function App() {
     const color = SCREEN_BG[screen] || '#fff'
     document.body.style.background = color
     document.documentElement.style.background = color
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', color)
   }, [screen])
   const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
   const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
