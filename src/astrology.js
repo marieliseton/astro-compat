@@ -416,22 +416,55 @@ const PLANETS_CHART = [
 ]
 
 export function extractCharts(synData, p1Name, p2Name) {
-  const p1pl = synData?.first_subject?.planets  || {}
-  const p2pl = synData?.second_subject?.planets || {}
+  const p1raw = synData?.first_subject || {}
+  const p2raw = synData?.second_subject || {}
+
+  // Les planètes peuvent être sous .planets ou directement sur le sujet
+  function resolvePlanets(raw) {
+    const sub = raw.planets
+    if (sub && typeof sub === 'object' && !Array.isArray(sub) && Object.keys(sub).length > 0) return sub
+    return raw
+  }
+
+  // Cherche une planète en essayant minuscule, Majuscule et MAJUSCULE
+  function findPlanet(pl, key) {
+    return pl[key]
+      || pl[key.charAt(0).toUpperCase() + key.slice(1)]
+      || pl[key.toUpperCase()]
+      || null
+  }
+
+  // Récupère le nom du signe depuis plusieurs champs possibles
+  function getSign(p) {
+    return p?.sign || p?.sign_name || p?.zodiac || p?.zodiac_sign || null
+  }
+
+  // Parse le numéro de maison depuis plusieurs formats (1, "1", "1st", "I")
+  function parseHouse(p) {
+    const raw = p?.house ?? p?.house_num ?? p?.house_number ?? p?.house_name ?? null
+    if (raw === null || raw === undefined) return null
+    const n = parseInt(String(raw))
+    return isNaN(n) ? null : n
+  }
 
   function buildRows(pl) {
     const rows = []
-    for (const { key, symbol, label } of PLANETS_CHART) {
-      const p = pl[key]
-      if (!p?.sign) continue
-      rows.push({ symbol, label, sign: SIGNS_FR[p.sign] || p.sign, house: p.house ?? null })
+    for (const { key, symbol } of PLANETS_CHART) {
+      const p = findPlanet(pl, key)
+      const signName = getSign(p)
+      if (!signName) continue
+      rows.push({ symbol, sign: SIGNS_FR[signName] || signName, house: parseHouse(p) })
     }
-    const asc = pl.ascendant || pl.asc
-    if (asc?.sign) {
-      rows.push({ symbol:'↑', label:'Ascendant', sign: SIGNS_FR[asc.sign] || asc.sign, house: asc.house ?? null })
+    const asc = findPlanet(pl, 'ascendant') || findPlanet(pl, 'asc')
+    const ascSign = getSign(asc)
+    if (ascSign) {
+      rows.push({ symbol:'↑', sign: SIGNS_FR[ascSign] || ascSign, house: parseHouse(asc) })
     }
     return rows
   }
+
+  const p1pl = resolvePlanets(p1raw)
+  const p2pl = resolvePlanets(p2raw)
 
   return {
     p1: { name: p1Name, rows: buildRows(p1pl) },
