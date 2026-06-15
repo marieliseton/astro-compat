@@ -330,6 +330,101 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   )
 }
 
+// ── Loader tourbillon ─────────────────────────────────────────────────────────
+
+function TourbillonLoader() {
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const avail  = Math.min(window.innerWidth * 0.88, 780)
+    const R_MAX  = avail * 0.37
+    const TURNS  = 5.0
+    const R_MIN  = 5
+    const START  = Math.PI * 0.10
+    const TILT   = 30 * Math.PI / 180
+    const D      = 1000
+    const k      = Math.log(R_MAX / R_MIN) / (TURNS * 2 * Math.PI)
+
+    const W  = avail
+    const H  = Math.ceil(R_MAX * Math.sin(TILT) * 2 * 2.5) + 20
+    const cx = W / 2
+    const cy = H / 2
+
+    container.style.width    = W + 'px'
+    container.style.height   = H + 'px'
+    container.style.position = 'relative'
+    container.style.flexShrink = '0'
+
+    const SYMS = [
+      '✩','✧','✦','⋆','˚','•','‧','✪','☆','✰',
+      '✱','ᕯ','₊','°','★','✨','˖','⁺','*','◌',
+      '➶','ੈ','✩','✧','✦','⋆','˚','•','✪','☆',
+      '✰','✱','₊','°','★','✨','˖','⁺','*','◌',
+    ]
+
+    function spiralPt(theta) {
+      const r  = R_MAX * Math.exp(-k * theta)
+      const a  = START - theta
+      const x3 = r * Math.cos(a)
+      const z3 = r * Math.sin(a)
+      const y3 = -z3 * Math.sin(TILT)
+      const zp =  z3 * Math.cos(TILT)
+      const s  = D / (D + zp)
+      return { x: cx + x3 * s, y: cy + y3 * s, r, s }
+    }
+
+    const stars = []
+    let prevX = null, prevY = null, si = 0
+
+    for (let i = 0; i <= 12000; i++) {
+      const theta = (i / 12000) * TURNS * 2 * Math.PI
+      const { x, y, r, s } = spiralPt(theta)
+      const dist = prevX === null ? Infinity : Math.sqrt((x - prevX) ** 2 + (y - prevY) ** 2)
+      if (dist >= 13) {
+        const el = document.createElement('span')
+        el.style.position   = 'absolute'
+        el.style.transform  = 'translate(-50%,-50%)'
+        el.style.fontFamily = "'IM Fell DW Pica',Georgia,serif"
+        el.style.color      = '#fff'
+        el.style.lineHeight = '1'
+        el.style.userSelect = 'none'
+        el.style.visibility = 'hidden'
+        el.style.left       = x + 'px'
+        el.style.top        = y + 'px'
+        el.style.fontSize   = Math.max(5, Math.round((7 + (r / R_MAX) * 11) * s)) + 'px'
+        el.textContent      = SYMS[si++ % SYMS.length]
+        container.appendChild(el)
+        stars.push(el)
+        prevX = x; prevY = y
+      }
+    }
+
+    let idx = 0, dir = 1, timer
+    function step() {
+      if (stars[idx]) stars[idx].style.visibility = dir === 1 ? 'visible' : 'hidden'
+      idx += dir
+      if (idx >= stars.length) { idx = stars.length - 1; dir = -1 }
+      else if (idx < 0)        { idx = 0;                 dir =  1 }
+      timer = setTimeout(step, 38)
+    }
+    step()
+
+    return () => { clearTimeout(timer); container.innerHTML = '' }
+  }, [])
+
+  return (
+    <div style={{ position:'absolute', inset:0, background:'#0000ff', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:40 }}>
+      <div ref={containerRef} />
+      <p style={{ fontFamily:"'IM Fell DW Pica',Georgia,serif", fontStyle:'italic', fontSize:18, color:'#fff', letterSpacing:'-0.03em', textAlign:'center' }}>
+        nous calculons votre compatibilité<span className="dots" />
+      </p>
+    </div>
+  )
+}
+
 // ── Star grid background ──────────────────────────────────────────────────────
 
 const STAR_SYMBOLS = [
@@ -559,14 +654,7 @@ Règles absolues :
 
         {/* ── SCREEN 4 ── */}
         <div style={{ position:'absolute', inset:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
-          {loading && (
-            <div style={{ position:'absolute', inset:0, background:'#FFFEEE', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
-              <div style={{ fontSize:32, color:'#795275', animation:'spin 3s linear infinite' }}>✦</div>
-              <p style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, color:'#795275', letterSpacing:'-0.04em' }}>
-                nous calculons votre compatibilité<span className="dots" />
-              </p>
-            </div>
-          )}
+          {loading && <TourbillonLoader />}
           {!loading && result && !result.error && (
             <div style={{ position:'absolute', inset:0, overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
@@ -598,8 +686,7 @@ Règles absolues :
         )}
 
         <style>{`
-          @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-          .dots::after { content:''; animation:dots 1.5s steps(4,end) infinite; }
+          .dots::after { content:''; animation:dots 1.2s steps(4,end) infinite; }
           @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
         `}</style>
       </div>
