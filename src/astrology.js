@@ -200,6 +200,129 @@ export function calculateScore(aspects, synData) {
   return Math.min(97, Math.max(20, score))
 }
 
+// ── Traduction des aspects en langage humain ──────────────────────────────────
+
+// Paires triées alphabétiquement (ex: 'mercury' < 'moon', 'jupiter' < 'mars')
+const PAIR_TRANSLATIONS = {
+  'moon-sun':        { harmonic: 'Vous avez une facilité naturelle à vous sentir compris et accueillis mutuellement.', discordant: 'Vos besoins émotionnels et vos attentes peuvent parfois tirer dans des directions différentes.' },
+  'moon-moon':       { harmonic: 'Vos sensibilités se rejoignent souvent sans effort, ce qui facilite une vraie compréhension.', discordant: 'Vous ne traitez pas toujours les situations émotionnelles au même rythme.' },
+  'mars-venus':      { harmonic: 'Il existe entre vous une dynamique d\'énergie et d\'enthousiasme mutuels.', discordant: 'Vos manières d\'agir et de vous exprimer peuvent parfois créer des malentendus.' },
+  'sun-venus':       { harmonic: 'Vous avez une réelle facilité à apprécier et à valoriser ce que l\'autre apporte.', discordant: 'Certaines attentes affectives risquent de rester implicites si elles ne sont pas exprimées.' },
+  'moon-venus':      { harmonic: 'Il existe entre vous une tendresse naturelle et une sensibilité partagée.', discordant: 'Vos façons d\'exprimer votre affection ne sont pas toujours synchronisées.' },
+  'mercury-mercury': { harmonic: 'Vos échanges sont souvent fluides et stimulants intellectuellement.', discordant: 'Vos styles de communication diffèrent, ce qui nécessite parfois des ajustements.' },
+  'mercury-sun':     { harmonic: 'Vos échanges favorisent souvent la compréhension plutôt que le jugement.', discordant: 'L\'un peut parfois avoir l\'impression d\'être moins entendu que l\'autre dans vos conversations.' },
+  'mercury-moon':    { harmonic: 'Vous avez une bonne capacité à mettre des mots sur vos ressentis dans vos échanges.', discordant: 'La communication émotionnelle peut parfois manquer de fluidité entre vous.' },
+  'mars-mars':       { harmonic: 'Vous partagez un élan similaire face aux défis, ce qui peut être très stimulant.', discordant: 'Vous pouvez réagir très différemment face aux tensions ou aux frustrations.' },
+  'saturn-sun':      { harmonic: 'L\'un apporte une stabilité et une structure que l\'autre peut trouver rassurante.', discordant: 'L\'un peut parfois avoir l\'impression d\'être freiné ou incompris par l\'autre.' },
+  'moon-saturn':     { harmonic: 'L\'un apporte une structure qui peut aider l\'autre à canaliser ses émotions.', discordant: 'L\'un peut parfois ressentir que l\'autre manque de douceur ou de disponibilité émotionnelle.' },
+  'saturn-venus':    { harmonic: 'L\'un apporte une solidité et une constance que l\'autre peut trouver précieuse.', discordant: 'Certaines distances affectives peuvent apparaître si les besoins ne sont pas exprimés clairement.' },
+  'mars-saturn':     { harmonic: 'L\'un apporte de la rigueur là où l\'autre apporte de l\'élan — une combinaison complémentaire.', discordant: 'L\'énergie de l\'un peut parfois être freinée ou mal comprise par l\'autre.' },
+  'jupiter-sun':     { harmonic: 'Vous avez tendance à vous faire grandir mutuellement et à encourager vos ambitions.', discordant: 'Vos visions de l\'avenir peuvent parfois ne pas aller dans le même sens.' },
+  'jupiter-moon':    { harmonic: 'Vous avez tendance à vous soutenir naturellement dans les périodes importantes.', discordant: 'Vos attentes affectives peuvent parfois être difficiles à équilibrer.' },
+  'jupiter-mercury': { harmonic: 'Vos échanges stimulent la curiosité et l\'ouverture d\'esprit de chacun.', discordant: 'L\'un peut parfois avoir l\'impression que l\'autre minimise les détails importants.' },
+  'jupiter-venus':   { harmonic: 'Vous êtes capables de faire grandir les qualités et les joies de l\'autre.', discordant: 'Vos façons d\'exprimer la générosité ou l\'affection peuvent parfois être décalées.' },
+  'sun-sun':         { harmonic: 'Vous partagez une vision de la vie similaire qui facilite votre entente.', discordant: 'Vos personnalités peuvent parfois entrer en concurrence plutôt qu\'en complémentarité.' },
+  'asc-sun':         { harmonic: 'L\'un ressent souvent une facilité naturelle à être soi-même face à l\'autre.', discordant: 'Il peut être difficile pour l\'un de vraiment se sentir vu et reconnu par l\'autre.' },
+  'asc-moon':        { harmonic: 'Vous avez une facilité à accueillir les états émotionnels de l\'autre sans jugement.', discordant: 'Les premières impressions peuvent parfois masquer des différences émotionnelles plus profondes.' },
+  'asc-venus':       { harmonic: 'Vous appréciez naturellement la présence et l\'énergie de l\'autre.', discordant: 'Vos façons d\'exprimer l\'affection ou les attentes peuvent créer des décalages.' },
+  'asc-mars':        { harmonic: 'L\'un stimule naturellement l\'élan et la motivation de l\'autre.', discordant: 'L\'énergie de l\'un peut parfois être perçue comme trop directe ou pressante par l\'autre.' },
+  'mars-moon':       { harmonic: 'Votre relation a une belle énergie, avec une vraie capacité à vous motiver mutuellement.', discordant: 'Vos réactions instinctives peuvent parfois s\'entrechoquer dans les moments de tension.' },
+  'mars-sun':        { harmonic: 'Vous vous stimulez mutuellement à agir et à avancer vers vos objectifs.', discordant: 'Des dynamiques de leadership peuvent parfois créer des frictions entre vous.' },
+  'venus-venus':     { harmonic: 'Vous partagez des valeurs et des goûts similaires qui favorisent l\'harmonie.', discordant: 'Vos attentes relationnelles peuvent parfois diverger sans que l\'un ni l\'autre ne le remarque.' },
+  'moon-pluto':      { harmonic: 'Votre relation a une profondeur qui favorise une transformation mutuelle.', discordant: 'Des dynamiques intenses peuvent parfois créer une pression émotionnelle difficile à gérer.' },
+  'pluto-sun':       { harmonic: 'Votre relation a une capacité de transformation et d\'évolution mutuelle profonde.', discordant: 'Des dynamiques de pouvoir peuvent parfois s\'installer inconsciemment entre vous.' },
+  'asc-mercury':     { harmonic: 'Vos échanges sont naturellement fluides et stimulants pour les deux.', discordant: 'La façon dont l\'un se présente peut parfois être mal interprétée par l\'autre.' },
+  'asc-asc':         { harmonic: 'Vous avez une belle aisance à vous retrouver et à interagir naturellement.', discordant: 'Vos façons d\'aborder les autres et les situations peuvent parfois différer fortement.' },
+  'mercury-saturn':  { harmonic: 'L\'un apporte de la rigueur et de la profondeur aux échanges de l\'autre.', discordant: 'L\'un peut parfois ressentir que l\'autre n\'est pas pleinement disponible dans les échanges.' },
+}
+
+function isHarmonicAspect(p1, p2, aspectType) {
+  if (['trine', 'sextile', 'semisextile'].includes(aspectType)) return true
+  if (['square', 'opposition', 'semisquare', 'sesquisquare'].includes(aspectType)) return false
+  if (aspectType === 'conjunction') {
+    const pair = [p1, p2].sort().join('-')
+    const delta = CONJ_DELTA[pair] ?? 4
+    return delta > 0
+  }
+  return null // quincunx = neutre, ignoré
+}
+
+export function translateAspectsToHuman(aspects) {
+  const PLANET_WEIGHT = { sun:5, moon:5, venus:4, mars:4, asc:4, mercury:2, jupiter:2, saturn:3, uranus:1, neptune:1, pluto:2 }
+  const positive = [], negative = []
+  const usedKeys = new Set()
+
+  const sorted = aspects.map(a => {
+    const p1 = getPlanetKey(a.p1_name || a.p1 || a.point1 || a.first_point)
+    const p2 = getPlanetKey(a.p2_name || a.p2 || a.point2 || a.second_point)
+    const at = getAspectKey(a.aspect || a.type || a.name || a.aspect_name)
+    if (!p1 || !p2 || !at) return null
+    return { p1, p2, at, weight: (PLANET_WEIGHT[p1] || 1) + (PLANET_WEIGHT[p2] || 1) }
+  }).filter(Boolean).sort((a, b) => b.weight - a.weight)
+
+  for (const { p1, p2, at } of sorted) {
+    const pair = [p1, p2].sort().join('-')
+    const tr = PAIR_TRANSLATIONS[pair]
+    if (!tr) continue
+    const harmonic = isHarmonicAspect(p1, p2, at)
+    if (harmonic === null) continue
+    const key = `${pair}-${harmonic ? 'h' : 'd'}`
+    if (usedKeys.has(key)) continue
+    usedKeys.add(key)
+    if (harmonic) positive.push(tr.harmonic)
+    else negative.push(tr.discordant)
+  }
+
+  return { positive, negative }
+}
+
+export function generateLocalContent(aspects, synData, p1Name, p2Name, score) {
+  const { positive, negative } = translateAspectsToHuman(aspects)
+
+  const genericPositive = [
+    'Vous êtes capables de vous soutenir mutuellement dans les moments importants.',
+    'Il existe entre vous une base de respect mutuel qui peut traverser les épreuves.',
+    'Votre relation a le potentiel de vous faire grandir chacun à votre façon.',
+    'Vous avez tendance à vous comprendre même dans les situations complexes.',
+  ]
+  const genericNegative = [
+    'Comme dans toute relation, certains moments nécessiteront plus d\'écoute et de patience.',
+    'Des attentes non exprimées pourraient créer des tensions si elles s\'accumulent.',
+    'Vos différences demandent parfois un effort conscient pour être comprises plutôt que jugées.',
+    'L\'un peut parfois interpréter les réactions de l\'autre plus négativement qu\'elles ne le sont réellement.',
+  ]
+
+  const greenFlags = [...positive]
+  const redFlags = [...negative]
+  let gi = 0; while (greenFlags.length < 3) greenFlags.push(genericPositive[gi++ % genericPositive.length])
+  let ri = 0; while (redFlags.length < 3) redFlags.push(genericNegative[ri++ % genericNegative.length])
+  greenFlags.length = Math.min(greenFlags.length, 5)
+  redFlags.length = Math.min(redFlags.length, 5)
+
+  let resume
+  if (score >= 75) {
+    resume = `${p1Name} et ${p2Name} partagent une dynamique relationnelle particulièrement fluide. Leurs façons d'être se complètent sur des points essentiels, créant une base solide pour se comprendre et s'appuyer mutuellement. Cette relation a tout pour évoluer dans un climat de confiance et de croissance partagée.`
+  } else if (score >= 60) {
+    resume = `La relation entre ${p1Name} et ${p2Name} est riche en potentiel, même si elle demande une certaine conscience des différences de chacun. Leurs forces se rejoignent sur plusieurs points importants, tout en laissant de la place pour apprendre de l'autre. Avec un peu d'attention mutuelle, ce lien peut devenir très enrichissant.`
+  } else if (score >= 45) {
+    resume = `${p1Name} et ${p2Name} ont des tempéraments qui peuvent se stimuler mutuellement, même si cela passe parfois par des ajustements. Leurs différences sont réelles, mais elles peuvent aussi devenir une source de complémentarité si elles sont accueillies plutôt que combattues. La clé de ce lien réside dans la communication et la patience.`
+  } else {
+    resume = `La dynamique entre ${p1Name} et ${p2Name} demande un effort conscient pour trouver un terrain commun. Leurs tempéraments sont suffisamment différents pour créer des incompréhensions, mais chaque défi est aussi une opportunité d'apprendre quelque chose sur soi-même. Avec de la bienveillance et de la clarté, ce lien peut évoluer positivement.`
+  }
+
+  const dynamiquePoints = [
+    positive[0] || genericPositive[0],
+    negative[0] ? 'Ce qui peut sembler être un défi est souvent ce qui les invite à grandir l\'un grâce à l\'autre.' : 'L\'un apporte ce que l\'autre cherche parfois à développer en lui-même.',
+    'Cette relation vous invite chacun à mieux vous connaître en vous confrontant à une autre façon d\'être.',
+  ]
+
+  const dynamiquePara = score >= 60
+    ? `Cette relation fonctionne davantage sur la complémentarité que sur la similitude. ${p1Name} et ${p2Name} s'apportent mutuellement des perspectives différentes qui enrichissent chacun à sa façon.`
+    : `La dynamique entre ${p1Name} et ${p2Name} invite à une forme d'apprentissage mutuel. Leurs différences, bien que parfois source de friction, sont aussi ce qui rend ce lien unique et porteur de sens.`
+
+  return { resume, greenFlags, redFlags, dynamique: { paragraphe: dynamiquePara, points: dynamiquePoints } }
+}
+
 // ── Résumé textuel pour le prompt IA ─────────────────────────────────────────
 
 export function buildAstroSummary(synData, p1Name, p2Name) {

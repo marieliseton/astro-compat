@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { calculateScore, buildAstroSummary } from './astrology.js'
+import { calculateScore, buildAstroSummary, generateLocalContent } from './astrology.js'
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || ''
@@ -28,15 +28,10 @@ function parseTime(raw) {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-function fallbackInterpretation(score, p1Name, p2Name) {
-  if (score >= 80) return `${p1Name} et ${p2Name} partagent une vraie fluidité — les mots viennent naturellement, les silences aussi. C'est le genre de lien où l'on n'a pas besoin de tout expliquer pour être compris. Profitez-en : c'est rare.`
-  if (score >= 65) return `${p1Name} et ${p2Name} fonctionnent bien ensemble, avec une vraie complémentarité qui compense leurs différences. Quelques ajustements de rythme suffiront à rendre cette relation très solide. Le potentiel est là, il demande juste un peu d'attention.`
-  if (score >= 50) return `${p1Name} et ${p2Name} ont suffisamment en commun pour construire quelque chose de beau, même si leurs approches diffèrent parfois. Ce qui peut sembler être une friction est souvent ce qui les fait grandir l'un l'autre. Avec de la bienveillance, cette relation peut devenir une vraie force.`
-  return `${p1Name} et ${p2Name} ont des personnalités distinctes qui se complètent de façon inattendue. Les différences demandent plus d'efforts de communication, mais elles apportent aussi de la richesse. Une relation qui grandit avec le temps.`
-}
-
-async function generateInterpretation(prompt, score, p1Name, p2Name) {
-  if (!GEMINI_KEY) return { texte: fallbackInterpretation(score, p1Name, p2Name), source: 'fallback' }
+async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, aspects, synData) {
+  if (!GEMINI_KEY) {
+    return { content: generateLocalContent(aspects, synData, p1Name, p2Name, score), source: 'fallback' }
+  }
   let lastError = ''
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -47,8 +42,19 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
         )
         if (resp.ok) {
           const data = await resp.json()
-          const texte = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-          if (texte) return { texte, source: 'gemini' }
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+          if (text) {
+            try {
+              const match = text.match(/\{[\s\S]*\}/)
+              if (match) {
+                const parsed = JSON.parse(match[0])
+                if (parsed.resume && Array.isArray(parsed.greenFlags) && Array.isArray(parsed.redFlags) && parsed.dynamique) {
+                  return { content: parsed, source: 'gemini' }
+                }
+              }
+            } catch { /* essayer le modèle suivant */ }
+          }
+          lastError = `Réponse non structurée (${model})`
           break
         }
         lastError = (await resp.json().catch(()=>({}))).error?.message || `Gemini ${resp.status}`
@@ -57,7 +63,8 @@ async function generateInterpretation(prompt, score, p1Name, p2Name) {
       } catch(e) { lastError = e.message; await sleep(800*(attempt+1)) }
     }
   }
-  return { texte: fallbackInterpretation(score, p1Name, p2Name), source: 'fallback', reason: lastError }
+  console.log('[astro] fallback local:', lastError)
+  return { content: generateLocalContent(aspects, synData, p1Name, p2Name, score), source: 'fallback', reason: lastError }
 }
 
 async function getTimezone(lat, lng) {
@@ -330,6 +337,25 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   )
 }
 
+// ── Accordéon ─────────────────────────────────────────────────────────────────
+
+function Accordion({ title, children }) {
+  const [open, setOpen] = useState(false)
+  const SERIF = { fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }
+  return (
+    <div style={{ width:'min(353px, 88vw)', borderTop:'1px solid rgba(121,82,117,0.25)', marginTop:12 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ ...SERIF, width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0', background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#795275' }}
+      >
+        <span>{title}</span>
+        <span style={{ fontStyle:'normal', fontSize:22, lineHeight:1, display:'inline-block', transition:'transform 0.2s', transform: open ? 'rotate(45deg)' : 'rotate(0deg)' }}>+</span>
+      </button>
+      {open && <div style={{ paddingBottom:16 }}>{children}</div>}
+    </div>
+  )
+}
+
 // ── Loader tourbillon ─────────────────────────────────────────────────────────
 
 function TourbillonLoader() {
@@ -578,26 +604,29 @@ export default function App() {
         { aspects:aspectsArr, first_subject:synData?.first_subject||synData?.chart_data?.first_subject, second_subject:synData?.second_subject||synData?.chart_data?.second_subject },
         p1.prenom, p2.prenom
       )
-      const prompt = `Tu es un astrologue bienveillant spécialisé en synastrie occidentale. Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
+      const prompt = `Tu es un expert en psychologie relationnelle. Tu analyses les dynamiques humaines de façon bienveillante et précise.
+
+Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
 
 ${astroSummary}
 
 Score global : ${score}/100
 
-Écris exactement 3 phrases séparées par un saut de ligne. Pas de titre, pas d'emoji, pas de numéros, pas de tirets.
-— Phrase 1 : la force principale de ce lien, ce qui les attire et les unit.
-— Phrase 2 : un défi à surmonter ensemble (formulé de façon constructive, pas négative).
-— Phrase 3 : un encouragement sincère et un conseil pour faire durer ce lien.
+Génère une analyse structurée. Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou après.
+
+{"resume":"[3 à 5 phrases décrivant la dynamique principale, avec leurs prénoms, spécifique et non générique]","greenFlags":["[force concrète 1]","[force concrète 2]","[force concrète 3]"],"redFlags":["[défi bienveillant 1]","[défi bienveillant 2]","[défi bienveillant 3]"],"dynamique":{"paragraphe":"[paragraphe de synthèse sur comment ils interagissent]","points":["[ce qu'ils s'apportent mutuellement]","[ce qu'ils apprennent l'un de l'autre]","[leur complémentarité]"]}}
 
 Règles absolues :
-- Utilise leurs prénoms (${p1.prenom} et ${p2.prenom}).
-- Zéro vocabulaire astrologique (pas de signe, trigone, aspect, maison, planète).
-- Ton chaleureux et positif — même si le score est moyen, il y a toujours quelque chose de beau à souligner.
-- Phrases courtes, directes, sans métaphores lourdes.`
+- Zéro vocabulaire astrologique (pas de planète, signe, trigone, carré, aspect, maison, etc.)
+- Utilise ${p1.prenom} et ${p2.prenom} dans le résumé
+- Langage psychologique et relationnel uniquement
+- Ne suppose aucune relation amoureuse, romantique ou sexuelle
+- 3 à 5 éléments dans greenFlags et redFlags (minimum 3, maximum 5)
+- Ton bienveillant, direct, sans clichés ni généralités`
 
-      const { texte, source, reason } = await generateInterpretation(prompt, score, p1.prenom, p2.prenom)
+      const { content, source, reason } = await generateStructuredInterpretation(prompt, score, p1.prenom, p2.prenom, aspectsArr, synData)
       if (source==='fallback') console.log('[astro] fallback:', reason)
-      setResult({ score, texte })
+      setResult({ score, ...content })
     } catch(err) {
       setResult({ error: err.message })
     } finally {
@@ -658,13 +687,48 @@ Règles absolues :
           {!loading && result && !result.error && (
             <div style={{ position:'absolute', inset:0, overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
+
                 <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
+
                 <div style={{ display:'flex', alignItems:'flex-start' }}>
                   <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:160, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275' }}>{result.score}</div>
                   <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:36, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275', marginTop:18 }}>%</div>
                 </div>
-                <div style={{ width:'min(353px, 88vw)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'34px', letterSpacing:'-0.04em', color:'#795275', marginTop:32, textAlign:'left' }}>{result.texte}</div>
-                <button onClick={restart} style={{ marginTop:48, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
+
+                <div style={{ width:'min(353px, 88vw)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, lineHeight:'30px', letterSpacing:'-0.04em', color:'#795275', marginTop:32, textAlign:'left' }}>
+                  {result.resume}
+                </div>
+
+                <Accordion title="🌿 Green Flags">
+                  {(result.greenFlags || []).map((flag, i) => (
+                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
+                      <span style={{ flexShrink:0 }}>🌿</span><span>{flag}</span>
+                    </div>
+                  ))}
+                </Accordion>
+
+                <Accordion title="🚩 Red Flags">
+                  {(result.redFlags || []).map((flag, i) => (
+                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
+                      <span style={{ flexShrink:0 }}>🚩</span><span>{flag}</span>
+                    </div>
+                  ))}
+                </Accordion>
+
+                <Accordion title="✨ Votre dynamique">
+                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:14 }}>
+                    {result.dynamique?.paragraphe}
+                  </div>
+                  {(result.dynamique?.points || []).map((point, i) => (
+                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:8, display:'flex', gap:10, alignItems:'flex-start' }}>
+                      <span style={{ flexShrink:0 }}>•</span><span>{point}</span>
+                    </div>
+                  ))}
+                </Accordion>
+
+                <div style={{ width:'min(353px, 88vw)', height:1, background:'rgba(121,82,117,0.25)', marginTop:16 }} />
+
+                <button onClick={restart} style={{ marginTop:32, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
               </div>
             </div>
           )}
