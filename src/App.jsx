@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { calculateScore, buildAstroSummary, generateLocalContent } from './astrology.js'
+import { calculateScore, buildAstroSummary, generateLocalContent, extractCharts } from './astrology.js'
 
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || ''
@@ -626,7 +626,9 @@ Règles absolues :
 
       const { content, source, reason } = await generateStructuredInterpretation(prompt, score, p1.prenom, p2.prenom, aspectsArr, synData)
       if (source==='fallback') console.log('[astro] fallback:', reason)
-      setResult({ score, ...content })
+      const synSubjects = { first_subject: synData?.first_subject || synData?.chart_data?.first_subject, second_subject: synData?.second_subject || synData?.chart_data?.second_subject }
+      const charts = extractCharts(synSubjects, p1.prenom, p2.prenom)
+      setResult({ score, ...content, charts })
     } catch(err) {
       setResult({ error: err.message })
     } finally {
@@ -724,6 +726,24 @@ Règles absolues :
                       <span style={{ flexShrink:0 }}>•</span><span>{point}</span>
                     </div>
                   ))}
+                </Accordion>
+
+                <Accordion title="♋ Vos chartes">
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                    {[result.charts?.p1, result.charts?.p2].filter(Boolean).map((chart, ci) => (
+                      <div key={ci}>
+                        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:17, letterSpacing:'-0.04em', color:'#795275', marginBottom:8, borderBottom:'1px solid rgba(121,82,117,0.2)', paddingBottom:6 }}>
+                          {chart.name}
+                        </div>
+                        {chart.rows.map((row, i) => (
+                          <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:15, lineHeight:'22px', letterSpacing:'-0.04em', color:'#795275', marginBottom:3, display:'flex', gap:5, alignItems:'baseline' }}>
+                            <span style={{ fontStyle:'normal', width:18, flexShrink:0, textAlign:'center' }}>{row.symbol}</span>
+                            <span style={{ flex:1 }}>{row.sign}{row.house ? <span style={{ opacity:0.55, fontSize:12 }}> M.{row.house}</span> : null}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </Accordion>
 
                 <div style={{ width:'min(353px, 88vw)', height:1, background:'rgba(121,82,117,0.25)', marginTop:16 }} />

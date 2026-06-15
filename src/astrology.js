@@ -325,19 +325,20 @@ export function generateLocalContent(aspects, synData, p1Name, p2Name, score) {
 
 // ── Résumé textuel pour le prompt IA ─────────────────────────────────────────
 
+const SIGNS_FR = {
+  Aries:'Bélier', Taurus:'Taureau', Gemini:'Gémeaux', Cancer:'Cancer',
+  Leo:'Lion', Virgo:'Vierge', Libra:'Balance', Scorpio:'Scorpion',
+  Sagittarius:'Sagittaire', Capricorn:'Capricorne', Aquarius:'Verseau', Pisces:'Poissons',
+  Ari:'Bélier', Tau:'Taureau', Gem:'Gémeaux', Can:'Cancer', Vir:'Vierge',
+  Lib:'Balance', Sco:'Scorpion', Sag:'Sagittaire', Cap:'Capricorne',
+  Aqu:'Verseau', Pis:'Poissons',
+}
+
 export function buildAstroSummary(synData, p1Name, p2Name) {
   const aspects  = synData?.aspects || []
   const p1pl = synData?.first_subject?.planets  || {}
   const p2pl = synData?.second_subject?.planets || {}
 
-  const SIGNS_FR = {
-    Aries:'Bélier', Taurus:'Taureau', Gemini:'Gémeaux', Cancer:'Cancer',
-    Leo:'Lion', Virgo:'Vierge', Libra:'Balance', Scorpio:'Scorpion',
-    Sagittarius:'Sagittaire', Capricorn:'Capricorne', Aquarius:'Verseau', Pisces:'Poissons',
-    Ari:'Bélier', Tau:'Taureau', Gem:'Gémeaux', Can:'Cancer', Vir:'Vierge',
-    Lib:'Balance', Sco:'Scorpion', Sag:'Sagittaire', Cap:'Capricorne',
-    Aqu:'Verseau', Pis:'Poissons',
-  }
   const PLANETS_FR = {
     sun:'Soleil', moon:'Lune', mercury:'Mercure', venus:'Vénus',
     mars:'Mars', jupiter:'Jupiter', saturn:'Saturne', asc:'Ascendant',
@@ -400,4 +401,40 @@ export function buildAstroSummary(synData, p1Name, p2Name) {
     'Aspects clés de synastrie :',
     ...aspectLines,
   ].join('\n')
+}
+
+// ── Extraction des chartes natales ────────────────────────────────────────────
+
+const PLANETS_CHART = [
+  { key:'sun',     symbol:'☉', label:'Soleil'   },
+  { key:'moon',    symbol:'☽', label:'Lune'     },
+  { key:'mercury', symbol:'☿', label:'Mercure'  },
+  { key:'venus',   symbol:'♀', label:'Vénus'    },
+  { key:'mars',    symbol:'♂', label:'Mars'     },
+  { key:'jupiter', symbol:'♃', label:'Jupiter'  },
+  { key:'saturn',  symbol:'♄', label:'Saturne'  },
+]
+
+export function extractCharts(synData, p1Name, p2Name) {
+  const p1pl = synData?.first_subject?.planets  || {}
+  const p2pl = synData?.second_subject?.planets || {}
+
+  function buildRows(pl) {
+    const rows = []
+    for (const { key, symbol, label } of PLANETS_CHART) {
+      const p = pl[key]
+      if (!p?.sign) continue
+      rows.push({ symbol, label, sign: SIGNS_FR[p.sign] || p.sign, house: p.house ?? null })
+    }
+    const asc = pl.ascendant || pl.asc
+    if (asc?.sign) {
+      rows.push({ symbol:'↑', label:'Ascendant', sign: SIGNS_FR[asc.sign] || asc.sign, house: asc.house ?? null })
+    }
+    return rows
+  }
+
+  return {
+    p1: { name: p1Name, rows: buildRows(p1pl) },
+    p2: { name: p2Name, rows: buildRows(p2pl) },
+  }
 }
