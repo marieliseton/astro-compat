@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { calculateScore, buildAstroSummary, generateLocalContent, extractCharts } from './astrology.js'
+import {
+  calculateChart, calculateSynastry, calculateCompatibilityScore,
+  buildCompatibilityPrompt, buildLocalContent, compatibilityCache,
+} from './lib/astrology/index.ts'
 
-const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || ''
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY || ''
+const GEMINI_KEY   = import.meta.env.VITE_GEMINI_KEY || ''
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -28,9 +30,9 @@ function parseTime(raw) {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, aspects, synData) {
+async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, aspects) {
   if (!GEMINI_KEY) {
-    return { content: generateLocalContent(aspects, synData, p1Name, p2Name, score), source: 'fallback' }
+    return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback' }
   }
   let lastError = ''
   for (const model of GEMINI_MODELS) {
@@ -64,7 +66,38 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
     }
   }
   console.log('[astro] fallback local:', lastError)
-  return { content: generateLocalContent(aspects, synData, p1Name, p2Name, score), source: 'fallback', reason: lastError }
+  return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback', reason: lastError }
+}
+
+// ── Chartes natales display ───────────────────────────────────────────────────
+
+const PLANET_SYMBOLS = {
+  sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
+  jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇', ascendant:'↑',
+}
+const SIGNS_FR = {
+  Aries:'Bélier', Taurus:'Taureau', Gemini:'Gémeaux', Cancer:'Cancer',
+  Leo:'Lion', Virgo:'Vierge', Libra:'Balance', Scorpio:'Scorpion',
+  Sagittarius:'Sagittaire', Capricorn:'Capricorne', Aquarius:'Verseau', Pisces:'Poissons',
+}
+const CHART_PLANETS = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto','ascendant']
+
+function buildChartsDisplay(chart1, chart2, p1Name, p2Name) {
+  function toDisplay(chart, name) {
+    if (!chart) return { name, rows: [] }
+    return {
+      name,
+      rows: CHART_PLANETS.map(key => {
+        if (key === 'ascendant') {
+          const asc = chart.ascendant
+          return { symbol: PLANET_SYMBOLS.ascendant, sign: SIGNS_FR[asc.sign] ?? asc.sign, house: null }
+        }
+        const pos = chart[key]
+        return { symbol: PLANET_SYMBOLS[key], sign: SIGNS_FR[pos.sign] ?? pos.sign, house: pos.house }
+      }),
+    }
+  }
+  return { p1: toDisplay(chart1, p1Name), p2: toDisplay(chart2, p2Name) }
 }
 
 async function getTimezone(lat, lng) {
@@ -580,56 +613,32 @@ export default function App() {
       const [geo1, geo2] = await Promise.all([geocodeCity(p1.ville), geocodeCity(p2.ville)])
       const d1=parseDate(p1.dateRaw), t1=parseTime(p1.timeRaw)
       const d2=parseDate(p2.dateRaw), t2=parseTime(p2.timeRaw)
-      const subject1 = { name:p1.prenom, year:d1.year, month:d1.month, day:d1.day, hour:t1.hour, minute:t1.minute, city:geo1.city, nation:geo1.country, longitude:geo1.lng, latitude:geo1.lat, timezone:geo1.tz }
-      const subject2 = { name:p2.prenom, year:d2.year, month:d2.month, day:d2.day, hour:t2.hour, minute:t2.minute, city:geo2.city, nation:geo2.country, longitude:geo2.lng, latitude:geo2.lat, timezone:geo2.tz }
 
-      const synResp = await fetch('https://astrologer.p.rapidapi.com/api/v5/chart-data/synastry', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'X-RapidAPI-Host':'astrologer.p.rapidapi.com', 'X-RapidAPI-Key':RAPIDAPI_KEY },
-        body: JSON.stringify({
-          first_subject: subject1, second_subject: subject2,
-          active_points: ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Ascendant'],
-          active_aspects: [
-            { name:'conjunction', orb:8 }, { name:'opposition', orb:8 },
-            { name:'trine', orb:7 }, { name:'square', orb:7 }, { name:'sextile', orb:6 },
-          ],
-        })
-      })
-      if (!synResp.ok) throw new Error(`Astrologer API ${synResp.status}`)
-      const synData = await synResp.json()
-      console.log('[astro] first_subject keys:', Object.keys(synData?.first_subject || {}))
-      console.log('[astro] planets keys:', Object.keys(synData?.first_subject?.planets || {}))
+      const birthData1 = { year:d1.year, month:d1.month, day:d1.day, hour:t1.hour, minute:t1.minute, latitude:geo1.lat, longitude:geo1.lng, timezone:geo1.tz }
+      const birthData2 = { year:d2.year, month:d2.month, day:d2.day, hour:t2.hour, minute:t2.minute, latitude:geo2.lat, longitude:geo2.lng, timezone:geo2.tz }
 
-      const aspectsArr = synData?.aspects || synData?.chart_data?.aspects || synData?.data?.aspects || []
-      const score = calculateScore(aspectsArr, synData)
-      const astroSummary = buildAstroSummary(
-        { aspects:aspectsArr, first_subject:synData?.first_subject||synData?.chart_data?.first_subject, second_subject:synData?.second_subject||synData?.chart_data?.second_subject },
-        p1.prenom, p2.prenom
+      // Charts are local+fast — compute always so cache hits still show them
+      const chart1 = calculateChart(birthData1)
+      const chart2 = calculateChart(birthData2)
+      const charts = buildChartsDisplay(chart1, chart2, p1.prenom, p2.prenom)
+
+      const cacheKey1 = `${p1.prenom}|${p1.dateRaw}`
+      const cacheKey2 = `${p2.prenom}|${p2.dateRaw}`
+      const cached = compatibilityCache.get(p1.prenom, cacheKey1, p2.prenom, cacheKey2)
+      if (cached) {
+        setResult({ score: cached.score, ...cached.content, charts })
+        return
+      }
+
+      const aspects = calculateSynastry(chart1, chart2)
+      const score   = calculateCompatibilityScore(aspects)
+      const prompt  = buildCompatibilityPrompt(p1.prenom, p2.prenom, score, aspects)
+      const { content, source, reason } = await generateStructuredInterpretation(
+        prompt, score, p1.prenom, p2.prenom, aspects
       )
-      const prompt = `Tu es un expert en psychologie relationnelle. Tu analyses les dynamiques humaines de façon bienveillante et précise.
-
-Voici les données de compatibilité entre ${p1.prenom} et ${p2.prenom} :
-
-${astroSummary}
-
-Score global : ${score}/100
-
-Génère une analyse structurée. Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou après.
-
-{"resume":"[3 à 5 phrases décrivant la dynamique principale, avec leurs prénoms, spécifique et non générique]","greenFlags":["[force concrète 1]","[force concrète 2]","[force concrète 3]"],"redFlags":["[défi bienveillant 1]","[défi bienveillant 2]","[défi bienveillant 3]"],"dynamique":{"paragraphe":"[paragraphe de synthèse sur comment ils interagissent]","points":["[ce qu'ils s'apportent mutuellement]","[ce qu'ils apprennent l'un de l'autre]","[leur complémentarité]"]}}
-
-Règles absolues :
-- Zéro vocabulaire astrologique (pas de planète, signe, trigone, carré, aspect, maison, etc.)
-- Utilise ${p1.prenom} et ${p2.prenom} dans le résumé
-- Langage psychologique et relationnel uniquement
-- Ne suppose aucune relation amoureuse, romantique ou sexuelle
-- 3 à 5 éléments dans greenFlags et redFlags (minimum 3, maximum 5)
-- Ton bienveillant, direct, sans clichés ni généralités`
-
-      const { content, source, reason } = await generateStructuredInterpretation(prompt, score, p1.prenom, p2.prenom, aspectsArr, synData)
       if (source==='fallback') console.log('[astro] fallback:', reason)
-      const synSubjects = { first_subject: synData?.first_subject || synData?.chart_data?.first_subject, second_subject: synData?.second_subject || synData?.chart_data?.second_subject }
-      const charts = extractCharts(synSubjects, p1.prenom, p2.prenom)
+
+      compatibilityCache.set(p1.prenom, cacheKey1, p2.prenom, cacheKey2, score, content)
       setResult({ score, ...content, charts })
     } catch(err) {
       setResult({ error: err.message })

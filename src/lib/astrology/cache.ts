@@ -1,0 +1,58 @@
+import type { StructuredContent } from './types';
+
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PREFIX = 'astro_compat_';
+
+interface CacheEntry {
+  score: number;
+  content: StructuredContent;
+  ts: number;
+}
+
+function makeKey(
+  p1Name: string, p1Date: string,
+  p2Name: string, p2Date: string,
+): string {
+  // Symmetric: A+B === B+A
+  const pairs = [[p1Name, p1Date], [p2Name, p2Date]].sort((a, b) => a[0].localeCompare(b[0]));
+  return PREFIX + btoa(`${pairs[0].join('|')}||${pairs[1].join('|')}`).replace(/=/g, '');
+}
+
+function tryStorage(): Storage | null {
+  try { localStorage.setItem('__test', '1'); localStorage.removeItem('__test'); return localStorage; }
+  catch { return null; }
+}
+
+export const compatibilityCache = {
+  get(
+    p1Name: string, p1Date: string,
+    p2Name: string, p2Date: string,
+  ): { score: number; content: StructuredContent } | null {
+    const store = tryStorage();
+    if (!store) return null;
+    try {
+      const raw = store.getItem(makeKey(p1Name, p1Date, p2Name, p2Date));
+      if (!raw) return null;
+      const entry: CacheEntry = JSON.parse(raw);
+      if (Date.now() - entry.ts > TTL_MS) {
+        store.removeItem(makeKey(p1Name, p1Date, p2Name, p2Date));
+        return null;
+      }
+      return { score: entry.score, content: entry.content };
+    } catch { return null; }
+  },
+
+  set(
+    p1Name: string, p1Date: string,
+    p2Name: string, p2Date: string,
+    score: number,
+    content: StructuredContent,
+  ): void {
+    const store = tryStorage();
+    if (!store) return;
+    try {
+      const entry: CacheEntry = { score, content, ts: Date.now() };
+      store.setItem(makeKey(p1Name, p1Date, p2Name, p2Date), JSON.stringify(entry));
+    } catch { /* quota exceeded — ignore */ }
+  },
+};
