@@ -117,26 +117,30 @@ const FIELD_WRAP = (top) => ({
 })
 
 // ── Champ texte ───────────────────────────────────────────────────────────────
+// Uncontrolled input: React ne touche jamais value sur re-render → pas de blink iOS
 
-function FieldText({ top, label, value, onChange, onEnter, inputRef }) {
-  const [active, setActive] = useState(false)
+function FieldText({ top, label, onEnter, inputRef }) {
+  const [hasVal, setHasVal] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
   return (
     <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
-      {!value && !active && <span style={LABEL_STYLE}>{label}</span>}
-      <input ref={ref} type="text" value={value} enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setActive(true)} onBlur={() => setActive(false)}
+      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      <input ref={ref} type="text" enterKeyHint="next" style={INPUT_STYLE}
+        onFocus={() => setHasVal(true)}
+        onBlur={() => setHasVal(!!ref.current?.value)}
+        onChange={e => setHasVal(!!e.target.value)}
         onKeyDown={e => { if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() } }}
-        onChange={e => onChange(e.target.value)} />
+      />
     </div>
   )
 }
 
 // ── Champ ville ───────────────────────────────────────────────────────────────
+// Uncontrolled input: la valeur vit dans le DOM, pick() écrit ref.current.value directement
 
-function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef }) {
-  const [active, setActive] = useState(false)
+function FieldVille({ top, label, onConfirm, onEnter, inputRef }) {
+  const [hasVal, setHasVal] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
   const timer = useRef(null)
@@ -160,20 +164,34 @@ function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef 
     }, 100)
   }
 
-  function pick(s) { onChange(s); onConfirm(s); setShowDrop(false); setSuggestions([]) }
+  function pick(s) {
+    if (ref.current) ref.current.value = s
+    setHasVal(!!s)
+    onConfirm(s)
+    setShowDrop(false)
+    setSuggestions([])
+  }
 
   return (
     <div style={{ position:'absolute', left:'calc(50% - 161px)', top, width:322, zIndex:10 }}>
       <div style={{ height:55, display:'flex', alignItems:'center', paddingLeft:30, cursor:'text', position:'relative' }} onClick={() => ref.current?.focus()}>
-        {!value && !active && <span style={LABEL_STYLE}>{label}</span>}
-        <input ref={ref} type="text" autoComplete="off" value={value} enterKeyHint="next" style={INPUT_STYLE}
-          onFocus={() => setActive(true)}
-          onBlur={() => setTimeout(() => { setActive(false); setShowDrop(false) }, 200)}
+        {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+        <input ref={ref} type="text" autoComplete="off" enterKeyHint="next" style={INPUT_STYLE}
+          onFocus={() => setHasVal(true)}
+          onBlur={() => {
+            setHasVal(!!ref.current?.value)
+            setTimeout(() => setShowDrop(false), 200)
+          }}
           onKeyDown={e => {
             if (e.key==='Enter') { e.preventDefault(); if (showDrop&&suggestions.length) { pick(suggestions[0]); onEnter?.() } }
             else if (e.key==='Tab') { e.preventDefault(); if (showDrop&&suggestions.length) pick(suggestions[0]); onEnter?.() }
           }}
-          onChange={e => { onChange(e.target.value); onConfirm(null); fetchSugg(e.target.value) }} />
+          onChange={e => {
+            setHasVal(!!e.target.value)
+            onConfirm(null)
+            fetchSugg(e.target.value)
+          }}
+        />
       </div>
       {showDrop && (
         <div style={{ position:'absolute', top:55, left:0, width:'100%', background:'rgba(255,255,255,0.95)', backdropFilter:'blur(20px)', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.12)', overflow:'hidden', zIndex:100 }}>
@@ -192,6 +210,7 @@ function FieldVille({ top, label, value, onChange, onConfirm, onEnter, inputRef 
 }
 
 // ── Champ date ────────────────────────────────────────────────────────────────
+// Uncontrolled: defaultValue + e.target.value manuel → pas de setSelectionRange ni re-render DOM
 
 function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!dateRaw)
@@ -265,11 +284,31 @@ function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
 }
 
 // ── Écran formulaire ──────────────────────────────────────────────────────────
+// L'état du formulaire vit ici, pas dans App → aucun re-render de App pendant la saisie
 
-function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, onVilleConfirm, onSubmit, error }) {
+function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
+  const refPrenom = useRef(null)
   const refVille = useRef(null)
   const refDate = useRef(null)
   const refTime = useRef(null)
+
+  const [dateRaw, setDateRaw] = useState('')
+  const [timeRaw, setTimeRaw] = useState('')
+  const [villeOk, setVilleOk] = useState(false)
+  const [error, setError] = useState('')
+
+  const isMe = labels[0].startsWith('votre')
+
+  function handleSubmit() {
+    const prenom = (refPrenom.current?.value || '').trim()
+    const ville = (refVille.current?.value || '').trim()
+    if (!prenom) { setError(isMe ? 'Merci de renseigner votre prénom.' : 'Merci de renseigner son prénom.'); return }
+    if (!ville || !villeOk) { setError('Sélectionnez une ville dans la liste.'); return }
+    if (dateRaw.length < 8) { setError('Date incomplète (JJ/MM/AAAA).'); return }
+    if (timeRaw.length < 4) { setError('Heure incomplète (HH:MM).'); return }
+    setError('')
+    onSubmit({ prenom, ville, dateRaw, timeRaw })
+  }
 
   return (
     <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden', transition:'opacity 0.4s ease', opacity:visible?1:0, pointerEvents:visible?'all':'none' }}>
@@ -278,12 +317,12 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, data, onChange, 
       {[126,194,262,330].map(t => (
         <div key={t} style={{ position:'absolute', width:322, height:55, left:'calc(50% - 161px)', top:t, background:'#FFF', filter:'blur(12.65px)', borderRadius:100 }} />
       ))}
-      <FieldText  top={126} label={labels[0]} value={data.prenom}   onChange={v=>onChange('prenom',v)}  onEnter={()=>refVille.current?.focus()} />
-      <FieldVille top={194} label={labels[1]} value={data.ville}    onChange={v=>onChange('ville',v)}   onConfirm={v=>onVilleConfirm(v)} onEnter={()=>refDate.current?.focus()} inputRef={refVille} />
-      <FieldDate  top={262} label={labels[2]} dateRaw={data.dateRaw} onDateChange={v=>onChange('dateRaw',v)} onEnter={()=>refTime.current?.focus()} inputRef={refDate} />
-      <FieldTime  top={330} label={labels[3]} timeRaw={data.timeRaw} onTimeChange={v=>onChange('timeRaw',v)} onEnter={onSubmit} inputRef={refTime} />
+      <FieldText  top={126} label={labels[0]} onEnter={() => refVille.current?.focus()} inputRef={refPrenom} />
+      <FieldVille top={194} label={labels[1]} onConfirm={v => setVilleOk(!!v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
+      <FieldDate  top={262} label={labels[2]} dateRaw={dateRaw} onDateChange={setDateRaw} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
+      <FieldTime  top={330} label={labels[3]} timeRaw={timeRaw} onTimeChange={setTimeRaw} onEnter={handleSubmit} inputRef={refTime} />
       {error && <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>}
-      <button onClick={onSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+      <button onClick={handleSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
         valider
         <span style={{ display:'block', width:50, height:1, background:ctaColor||'#000' }} />
       </button>
@@ -386,7 +425,6 @@ function StarGrid() {
 
 // ── Constantes écran ──────────────────────────────────────────────────────────
 
-// Couleurs par écran — source unique de vérité (reflétée dans App.css)
 const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#FFFEEE' }
 const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#FFFEEE' }
 
@@ -395,25 +433,16 @@ const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#FFFEEE' }
 export default function App() {
   const [screen, setScreen] = useState(1)
   const [formKey, setFormKey] = useState(0)
-  const [p1, setP1] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
-  const [p2, setP2] = useState({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
-  const [ville1Ok, setVille1Ok] = useState(false)
-  const [ville2Ok, setVille2Ok] = useState(false)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error1, setError1] = useState('')
-  const [error2, setError2] = useState('')
+  const p1Ref = useRef(null)
 
   // ── iOS 26 : data-screen sur <html> avant le paint ───────────────────────
-  // useLayoutEffect est synchrone (avant que le navigateur peigne) — iOS 26
-  // Safari échantillonne body.background-color au moment du paint ; l'attribut
-  // doit donc être posé AVANT ce moment. Le CSS dans App.css se charge du reste.
   useLayoutEffect(() => {
     document.documentElement.setAttribute('data-screen', String(screen))
   }, [screen])
 
-  // ── theme-color : Android Chrome + desktop (iOS 26 l'ignore) ─────────────
-  // On recrée le meta tag (pas juste setAttribute) pour forcer la relecture.
+  // ── theme-color : Android Chrome + desktop ────────────────────────────────
   useEffect(() => {
     const topColor = SCREEN_TOP[screen]
     const existing = document.querySelector('meta[name="theme-color"]')
@@ -424,25 +453,7 @@ export default function App() {
     document.head.appendChild(meta)
   }, [screen])
 
-  function updateP1(k,v) { setP1(p=>({...p,[k]:v})) }
-  function updateP2(k,v) { setP2(p=>({...p,[k]:v})) }
-
-  function validateP1() {
-    if (!p1.prenom.trim()) { setError1('Merci de renseigner votre prénom.'); return false }
-    if (!p1.ville.trim()||!ville1Ok) { setError1('Sélectionnez une ville dans la liste.'); return false }
-    if (p1.dateRaw.length<8) { setError1('Date incomplète (JJ/MM/AAAA).'); return false }
-    if (p1.timeRaw.length<4) { setError1('Heure incomplète (HH:MM).'); return false }
-    setError1(''); return true
-  }
-  function validateP2() {
-    if (!p2.prenom.trim()) { setError2('Merci de renseigner son prénom.'); return false }
-    if (!p2.ville.trim()||!ville2Ok) { setError2('Sélectionnez une ville dans la liste.'); return false }
-    if (p2.dateRaw.length<8) { setError2('Date incomplète (JJ/MM/AAAA).'); return false }
-    if (p2.timeRaw.length<4) { setError2('Heure incomplète (HH:MM).'); return false }
-    setError2(''); return true
-  }
-
-  async function calculate() {
+  async function calculate(p1, p2) {
     setLoading(true); setScreen(4)
     try {
       const [geo1, geo2] = await Promise.all([geocodeCity(p1.ville), geocodeCity(p2.ville)])
@@ -501,9 +512,7 @@ Règles absolues :
 
   function restart() {
     setScreen(1); setResult(null)
-    setP1({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
-    setP2({ prenom:'', ville:'', dateRaw:'', timeRaw:'' })
-    setVille1Ok(false); setVille2Ok(false)
+    p1Ref.current = null
     setFormKey(k=>k+1)
   }
 
@@ -537,16 +546,16 @@ Règles absolues :
           bgStyle={{ background:'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)' }}
           deco="₊˚⊹☆" ctaColor="#FFFBC9"
           labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
-          data={p1} onChange={updateP1} onVilleConfirm={v=>setVille1Ok(!!v)} error={error1}
-          onSubmit={() => { if(validateP1()) setScreen(3) }} />
+          onSubmit={data => { p1Ref.current = data; setScreen(3) }}
+        />
 
         {/* ── SCREEN 3 ── */}
         <FormScreen key={`s3-${formKey}`} visible={screen===3}
           bgStyle={{ background:'linear-gradient(180deg, #78D119 0%, #FFF827 100%)' }}
           deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" ctaColor="#000000"
           labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
-          data={p2} onChange={updateP2} onVilleConfirm={v=>setVille2Ok(!!v)} error={error2}
-          onSubmit={() => { if(validateP2()) calculate() }} />
+          onSubmit={data => { calculate(p1Ref.current, data) }}
+        />
 
         {/* ── SCREEN 4 ── */}
         <div style={{ position:'absolute', inset:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
