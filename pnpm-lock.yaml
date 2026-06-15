@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      astronomy-engine:
+        specifier: ^2.1.19
+        version: 2.1.19
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -425,6 +428,9 @@ packages:
     engines: {node: ^14.18.0 || >=16.0.0}
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+
+  astronomy-engine@2.1.19:
+    resolution: {integrity: sha512-8yWKNf7UeNbH458h3sAJ6ZgAjE5jTXp/mNNRFoC20j2SHwZIjAQeEsBB2Q3uCFRaTCCJRv33K2XhkhZQMXoX6w==}
 
   baseline-browser-mapping@2.9.19:
     resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
@@ -977,6 +983,8 @@ snapshots:
       vite: 5.4.21(@types/node@24.10.4)(lightningcss@1.31.1)
     transitivePeerDependencies:
       - supports-color
+
+  astronomy-engine@2.1.19: {}
 
   baseline-browser-mapping@2.9.19: {}
 
