@@ -597,6 +597,8 @@ export default function App() {
       })
       if (!synResp.ok) throw new Error(`Astrologer API ${synResp.status}`)
       const synData = await synResp.json()
+      console.log('[astro] first_subject keys:', Object.keys(synData?.first_subject || {}))
+      console.log('[astro] planets keys:', Object.keys(synData?.first_subject?.planets || {}))
 
       const aspectsArr = synData?.aspects || synData?.chart_data?.aspects || synData?.data?.aspects || []
       const score = calculateScore(aspectsArr, synData)
