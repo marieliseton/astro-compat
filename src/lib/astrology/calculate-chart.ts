@@ -117,9 +117,70 @@ function longitudeToSign(lon: number): { sign: ZodiacSign; signDegree: number } 
   };
 }
 
-// Equal house cusps (testing - each 30° from Ascendant)
-function houseCusps(ascLon: number): number[] {
-  return Array.from({ length: 12 }, (_, i) => ((ascLon + i * 30) % 360 + 360) % 360);
+// Placidus house cusps - corrected implementation
+function houseCusps(ascLon: number, time: AstroTime, lat: number, lon: number): number[] {
+  const eps = obliquity(time);
+  const epsRad = eps * Math.PI / 180;
+  const latRad = lat * Math.PI / 180;
+
+  // Get RAMC
+  const gstHours = gmst(time);
+  const lstHours = ((gstHours + lon / 15) % 24 + 24) % 24;
+  const ramc = lstHours * 15;
+
+  // Convert RA to ecliptic longitude (for points on celestial equator)
+  const raToLon = (raVal: number): number => {
+    const raRad = raVal * Math.PI / 180;
+    const lon = Math.atan2(Math.sin(raRad), Math.cos(raRad) * Math.cos(epsRad)) * 180 / Math.PI;
+    return ((lon % 360) + 360) % 360;
+  };
+
+  const normalize = (angle: number): number => {
+    let a = angle % 360;
+    return a < 0 ? a + 360 : a;
+  };
+
+  // Cardinal points
+  const raMc = normalize(ramc);
+  const raAsc = normalize(ramc - 90);
+  const raDesc = normalize(ramc + 90);
+  const raIc = normalize(ramc + 180);
+
+  const cusps: number[] = [];
+
+  // Set cardinal cusps
+  cusps[0] = ascLon;                  // H1: Ascendant
+  cusps[9] = raToLon(raMc);           // H10: MC
+  cusps[6] = normalize(ascLon + 180); // H7: Descendant
+  cusps[3] = raToLon(raIc);           // H4: IC
+
+  // Helper to compute house cusp given two RA points and position (1/3 or 2/3)
+  const computeHouseCusp = (raStart: number, raEnd: number, fraction: number): number => {
+    let raInterval = normalize(raEnd - raStart);
+    if (raInterval > 180) {
+      // Handle wrap-around: go the "short way"
+      raInterval = raInterval - 360;
+    }
+    return raToLon(normalize(raStart + raInterval * fraction));
+  };
+
+  // Houses 2, 3 (Asc → MC)
+  cusps[1] = computeHouseCusp(raAsc, raMc, 1/3);
+  cusps[2] = computeHouseCusp(raAsc, raMc, 2/3);
+
+  // Houses 5, 6 (IC → Desc)
+  cusps[4] = computeHouseCusp(raIc, raDesc, 1/3);
+  cusps[5] = computeHouseCusp(raIc, raDesc, 2/3);
+
+  // Houses 8, 9 (Desc → IC)
+  cusps[7] = computeHouseCusp(raDesc, raIc, 1/3);
+  cusps[8] = computeHouseCusp(raDesc, raIc, 2/3);
+
+  // Houses 11, 12 (MC → Asc, wrapping around)
+  cusps[10] = computeHouseCusp(raMc, raAsc + 360, 1/3);
+  cusps[11] = computeHouseCusp(raMc, raAsc + 360, 2/3);
+
+  return cusps;
 }
 
 function planetHouse(planetLon: number, cusps: number[]): number {
@@ -142,7 +203,7 @@ export function calculateChart(data: BirthData): NatalChart {
 
   const ascLon  = calculateAscendant(time, data.latitude, data.longitude);
   const { sign: ascSign, signDegree: ascDeg } = longitudeToSign(ascLon);
-  const cusps   = houseCusps(ascLon);
+  const cusps   = houseCusps(ascLon, time, data.latitude, data.longitude);
 
   const chart: Partial<NatalChart> & { ascendant: NatalChart['ascendant']; houses: number[] } = {
     ascendant: { longitude: ascLon, sign: ascSign, signDegree: ascDeg },
