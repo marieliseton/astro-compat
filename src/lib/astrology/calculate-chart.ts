@@ -103,8 +103,8 @@ function calculateAscendant(time: AstroTime, lat: number, lon: number): number {
     return ((ramc - 90 + 360) % 360);
   }
 
-  const y = -Math.cos(ramcRad);
-  const x = Math.sin(ramcRad) * Math.cos(epsRad) + Math.tan(latRad) * Math.sin(epsRad);
+  const y = Math.cos(ramcRad);
+  const x = -(Math.sin(ramcRad) * Math.cos(epsRad) + Math.tan(latRad) * Math.sin(epsRad));
   const asc = Math.atan2(y, x) * 180 / Math.PI;
   return ((asc % 360) + 360) % 360;
 }
