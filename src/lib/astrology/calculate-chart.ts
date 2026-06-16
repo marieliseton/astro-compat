@@ -117,7 +117,7 @@ function longitudeToSign(lon: number): { sign: ZodiacSign; signDegree: number } 
   };
 }
 
-// Equal house cusps (12 × 30°, starting at Ascendant)
+// Equal house cusps (testing - each 30° from Ascendant)
 function houseCusps(ascLon: number): number[] {
   return Array.from({ length: 12 }, (_, i) => ((ascLon + i * 30) % 360 + 360) % 360);
 }
