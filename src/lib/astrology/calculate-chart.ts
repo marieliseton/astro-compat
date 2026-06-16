@@ -117,7 +117,7 @@ function longitudeToSign(lon: number): { sign: ZodiacSign; signDegree: number } 
   };
 }
 
-// Placidus house cusps - corrected implementation
+// Placidus house cusps - based on Swiss Ephemeris swehouse.c algorithm
 function houseCusps(ascLon: number, time: AstroTime, lat: number, lon: number): number[] {
   const eps = obliquity(time);
   const epsRad = eps * Math.PI / 180;
@@ -126,59 +126,55 @@ function houseCusps(ascLon: number, time: AstroTime, lat: number, lon: number): 
   // Get RAMC
   const gstHours = gmst(time);
   const lstHours = ((gstHours + lon / 15) % 24 + 24) % 24;
-  const ramc = lstHours * 15;
+  const ramc = lstHours * 15; // in degrees
 
-  // Convert RA to ecliptic longitude (for points on celestial equator)
-  const raToLon = (raVal: number): number => {
-    const raRad = raVal * Math.PI / 180;
-    const lon = Math.atan2(Math.sin(raRad), Math.cos(raRad) * Math.cos(epsRad)) * 180 / Math.PI;
-    return ((lon % 360) + 360) % 360;
-  };
-
-  const normalize = (angle: number): number => {
+  const deg2rad = (deg: number) => deg * Math.PI / 180;
+  const rad2deg = (rad: number) => rad * 180 / Math.PI;
+  const normalize = (angle: number) => {
     let a = angle % 360;
     return a < 0 ? a + 360 : a;
   };
 
-  // Cardinal points
-  const raMc = normalize(ramc);
-  const raAsc = normalize(ramc - 90);
-  const raDesc = normalize(ramc + 90);
-  const raIc = normalize(ramc + 180);
+  // Swiss Ephemeris Placidus algorithm from swehouse.c
+  // Based on: a = asind(tand(lat) * tand(obliquity))
+  const tanLat = Math.tan(latRad);
+  const tanEps = Math.tan(epsRad);
+  const a = rad2deg(Math.asin(Math.tan(latRad) * tanEps)); // auxiliary angle
+
+  // Compute intermediate RA values for Placidus division
+  // These represent 1/3 and 2/3 divisions of each semi-arc
+  const computeRa = (fraction: number): number => {
+    const numerator = Math.sin(deg2rad(a * fraction));
+    return rad2deg(Math.atan(numerator / tanEps));
+  };
+
+  const fh1 = computeRa(1/3); // 1/3 of auxiliary arc
+  const fh2 = computeRa(2/3); // 2/3 of auxiliary arc
 
   const cusps: number[] = [];
 
-  // Set cardinal cusps
-  cusps[0] = ascLon;                  // H1: Ascendant
-  cusps[9] = raToLon(raMc);           // H10: MC
-  cusps[6] = normalize(ascLon + 180); // H7: Descendant
-  cusps[3] = raToLon(raIc);           // H4: IC
-
-  // Helper to compute house cusp given two RA points and position (1/3 or 2/3)
-  const computeHouseCusp = (raStart: number, raEnd: number, fraction: number): number => {
-    let raInterval = normalize(raEnd - raStart);
-    if (raInterval > 180) {
-      // Handle wrap-around: go the "short way"
-      raInterval = raInterval - 360;
-    }
-    return raToLon(normalize(raStart + raInterval * fraction));
+  // Convert RA to ecliptic longitude
+  const raToLon = (ra: number): number => {
+    const raRad = deg2rad(ra);
+    const lonResult = rad2deg(Math.atan2(Math.sin(raRad), Math.cos(raRad) * Math.cos(epsRad)));
+    return normalize(lonResult);
   };
 
-  // Houses 2, 3 (Asc → MC)
-  cusps[1] = computeHouseCusp(raAsc, raMc, 1/3);
-  cusps[2] = computeHouseCusp(raAsc, raMc, 2/3);
+  // Cardinal cusps
+  cusps[0] = ascLon; // H1: Ascendant
+  cusps[9] = raToLon(ramc); // H10: MC
+  cusps[6] = normalize(ascLon + 180); // H7: Descendant
+  cusps[3] = normalize(raToLon(ramc + 180)); // H4: IC
 
-  // Houses 5, 6 (IC → Desc)
-  cusps[4] = computeHouseCusp(raIc, raDesc, 1/3);
-  cusps[5] = computeHouseCusp(raIc, raDesc, 2/3);
-
-  // Houses 8, 9 (Desc → IC)
-  cusps[7] = computeHouseCusp(raDesc, raIc, 1/3);
-  cusps[8] = computeHouseCusp(raDesc, raIc, 2/3);
-
-  // Houses 11, 12 (MC → Asc, wrapping around)
-  cusps[10] = computeHouseCusp(raMc, raAsc + 360, 1/3);
-  cusps[11] = computeHouseCusp(raMc, raAsc + 360, 2/3);
+  // Placidus houses based on RA divisions
+  cusps[1] = raToLon(ramc + 120 + fh1);
+  cusps[2] = raToLon(ramc + 150 + fh2);
+  cusps[4] = raToLon(ramc + 300 + fh1);
+  cusps[5] = raToLon(ramc + 330 + fh2);
+  cusps[7] = raToLon(ramc + 60 + fh1);
+  cusps[8] = raToLon(ramc + 30 + fh2);
+  cusps[10] = raToLon(ramc + 30 + fh1);
+  cusps[11] = raToLon(ramc + 60 + fh2);
 
   return cusps;
 }
