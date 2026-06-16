@@ -9,8 +9,10 @@
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",
+    "horoscope": "^2.0.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "swisseph": "^0.5.17"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
