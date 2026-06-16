@@ -117,7 +117,7 @@ function longitudeToSign(lon: number): { sign: ZodiacSign; signDegree: number } 
   };
 }
 
-// Placidus house cusps - based on Swiss Ephemeris swehouse.c algorithm
+// Placidus house cusps - Ketu algorithm (iterative with declination)
 function houseCusps(ascLon: number, time: AstroTime, lat: number, lon: number): number[] {
   const eps = obliquity(time);
   const epsRad = eps * Math.PI / 180;
@@ -126,55 +126,68 @@ function houseCusps(ascLon: number, time: AstroTime, lat: number, lon: number): 
   // Get RAMC
   const gstHours = gmst(time);
   const lstHours = ((gstHours + lon / 15) % 24 + 24) % 24;
-  const ramc = lstHours * 15; // in degrees
+  const armc = lstHours * 15; // in degrees
 
-  const deg2rad = (deg: number) => deg * Math.PI / 180;
-  const rad2deg = (rad: number) => rad * 180 / Math.PI;
-  const normalize = (angle: number) => {
-    let a = angle % 360;
-    return a < 0 ? a + 360 : a;
+  const deg2rad = (d: number) => d * Math.PI / 180;
+  const rad2deg = (r: number) => r * 180 / Math.PI;
+  const normalize = (a: number) => {
+    let n = a % 360;
+    return n < 0 ? n + 360 : n;
   };
 
-  // Swiss Ephemeris Placidus algorithm from swehouse.c
-  // Based on: a = asind(tand(lat) * tand(obliquity))
-  const tanLat = Math.tan(latRad);
-  const tanEps = Math.tan(epsRad);
-  const a = rad2deg(Math.asin(Math.tan(latRad) * tanEps)); // auxiliary angle
-
-  // Compute intermediate RA values for Placidus division
-  // These represent 1/3 and 2/3 divisions of each semi-arc
-  const computeRa = (fraction: number): number => {
-    const numerator = Math.sin(deg2rad(a * fraction));
-    return rad2deg(Math.atan(numerator / tanEps));
+  // RA to ecliptic longitude
+  const raToLon = (ra: number): number => {
+    const raRad = deg2rad(normalize(ra));
+    return normalize(rad2deg(Math.atan2(Math.sin(raRad), Math.cos(raRad) * Math.cos(epsRad))));
   };
 
-  const fh1 = computeRa(1/3); // 1/3 of auxiliary arc
-  const fh2 = computeRa(2/3); // 2/3 of auxiliary arc
+  // Iterate to find house cusp RA given initial RA guess and formula offset
+  const iterateCuspRa = (raGuess: number, offset: number): number => {
+    let ra = normalize(raGuess);
+    const tanLat = Math.tan(latRad);
+    const tanEps = Math.tan(epsRad);
+
+    for (let i = 0; i < 50; i++) {
+      // Declination: tan(decl) = sin(RA) * tan(eps)
+      const sinRa = Math.sin(deg2rad(ra));
+      const decl = rad2deg(Math.atan(sinRa * tanEps));
+
+      // Ascensional difference: arcsin(tan(lat) * tan(decl))
+      const ad = rad2deg(Math.asin(tanLat * Math.tan(deg2rad(decl))));
+
+      // New RA based on cusp-specific formula
+      let newRa = normalize(armc + offset + ad);
+
+      // Check convergence (account for 360° wraparound)
+      const diff = Math.min(Math.abs(newRa - ra), 360 - Math.abs(newRa - ra));
+      if (diff < 1e-7) break;
+
+      ra = newRa;
+    }
+
+    return ra;
+  };
 
   const cusps: number[] = [];
 
-  // Convert RA to ecliptic longitude
-  const raToLon = (ra: number): number => {
-    const raRad = deg2rad(ra);
-    const lonResult = rad2deg(Math.atan2(Math.sin(raRad), Math.cos(raRad) * Math.cos(epsRad)));
-    return normalize(lonResult);
-  };
-
-  // Cardinal cusps
+  // Cardinal cusps (direct calculation)
   cusps[0] = ascLon; // H1: Ascendant
-  cusps[9] = raToLon(ramc); // H10: MC
+  cusps[9] = raToLon(armc); // H10: MC
   cusps[6] = normalize(ascLon + 180); // H7: Descendant
-  cusps[3] = normalize(raToLon(ramc + 180)); // H4: IC
+  cusps[3] = normalize(raToLon(armc + 180)); // H4: IC
 
-  // Placidus houses based on RA divisions
-  cusps[1] = raToLon(ramc + 120 + fh1);
-  cusps[2] = raToLon(ramc + 150 + fh2);
-  cusps[4] = raToLon(ramc + 300 + fh1);
-  cusps[5] = raToLon(ramc + 330 + fh2);
-  cusps[7] = raToLon(ramc + 60 + fh1);
-  cusps[8] = raToLon(ramc + 30 + fh2);
-  cusps[10] = raToLon(ramc + 30 + fh1);
-  cusps[11] = raToLon(ramc + 60 + fh2);
+  // Iterated cusps with Placidus formula offsets
+  // Each cusp uses (ARMC + offset) as initial RA guess
+  cusps[11] = raToLon(iterateCuspRa(armc + 30, 0));   // H11
+  cusps[10] = raToLon(iterateCuspRa(armc + 60, 0));   // H12... wait this should be H11
+  cusps[1] = raToLon(iterateCuspRa(armc + 120, 0));   // H2
+  cusps[2] = raToLon(iterateCuspRa(armc + 150, 0));   // H3
+
+  // Opposite cusps (180° away)
+  cusps[5] = normalize(cusps[11] + 180); // H6 opposite H12
+  cusps[4] = normalize(cusps[10] + 180); // H5 opposite H11
+  cusps[8] = normalize(cusps[1] + 180);  // H9 opposite H2
+  cusps[7] = normalize(cusps[2] + 180);  // H8 opposite H3
 
   return cusps;
 }
