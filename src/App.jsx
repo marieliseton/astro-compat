@@ -500,7 +500,7 @@ function ResultView({ result, onRestart }) {
 
       {/* ── Texte de la catégorie active : ancré sous le score, file derrière la pastille ── */}
       <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:'50%', transform:'translateX(-50%)', width:'min(353px, 90vw)', overflow:'hidden' }}>
-        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(24px, 8.6vw, 34px)', lineHeight:1.235, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
           {text}
         </p>
       </div>
@@ -877,6 +877,7 @@ export default function App() {
           /* Desktop : on remonte la barre d'onglets (~100px sous elle) */
           @media (min-width: 900px) {
             .result-bottom { bottom: 44px !important; }
+            .cat-text { font-size: 20px !important; line-height: 1.4 !important; }
           }
         `}</style>
       </div>
