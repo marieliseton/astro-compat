@@ -71,30 +71,26 @@ export function buildLocalContent(
   p2Name: string,
   score: number,
 ): import('./types').StructuredContent {
-  const { positive, negative } = interpretAspects(aspects);
-  const pos = positive[0] ?? '';
-  const neg = negative[0] ?? '';
-
-  // Textes courts (~40 mots max) — chaque catégorie garde sa voix propre.
+  // Textes plus longs, directs et fun (~65 mots max). Voix distincte par onglet.
   // ── Harmonie : ce qui rapproche ──────────────────────────────────────────
-  const harmony = pos
-    ? `Entre ${p1Name} et ${p2Name}, quelque chose se reconnaît sans avoir à s'expliquer. ${pos} Une aisance presque silencieuse, qui donne envie de rester.`
-    : `${p1Name} et ${p2Name} se rejoignent dans une justesse discrète : une façon d'être ensemble qui n'a pas besoin de forcer pour exister.`;
+  const harmony = score >= 60
+    ? `Soyons clairs : ${p1Name} et ${p2Name}, ça matche. Vous attrapez les blagues de l'autre au vol et vous tombez d'accord sur l'essentiel sans même y réfléchir. Il y a ce petit confort de te sentir compris·e sans avoir à faire un dessin. Le genre de complicité qui rend même les trucs banals carrément agréables.`
+    : `Pas de coup de foudre évident ici, mais ne zappez pas trop vite. ${p1Name} et ${p2Name} ont plus de points communs qu'il n'y paraît — il faut juste gratter un peu. Et quand le courant passe, il passe pour de vrai. C'est souvent là, dans les petits moments, que ça devient intéressant.`;
 
   // ── Tension : zones de friction ──────────────────────────────────────────
-  const tension = neg
-    ? `Tout n'est pas lisse, et c'est honnête. ${neg} Rien d'irréparable — seulement des endroits où l'attention de chacun fera la différence.`
-    : `Les frictions entre ${p1Name} et ${p2Name} restent feutrées : ce qui n'est pas nommé finit par peser. Une parole claire suffit souvent à les dissiper.`;
+  const tension = score >= 55
+    ? `Là où ça frotte ? Vous ne carburez pas toujours au même rythme. L'un fonce pendant que l'autre veut peser le pour et le contre, et ces décalages peuvent agacer si personne ne lâche du lest. Rien de dramatique — juste les classiques à surveiller avant que ça monte en sauce.`
+    : `Autant le dire : il y a du sport. Vos façons de réagir partent vite dans des directions opposées, et ce qui semble évident pour l'un paraît complètement à côté de la plaque pour l'autre. Bonne nouvelle : poser le truc à voix haute désamorce 90 % des étincelles. Encore faut-il oser.`;
 
   // ── Dynamique : leur manière d'interagir ─────────────────────────────────
   const dynamic = score >= 60
-    ? `Ensemble, ${p1Name} et ${p2Name} avancent par complémentarité plus que par ressemblance. Le rythme se trouve à deux, et c'est là que la relation prend sa couleur.`
-    : `${p1Name} et ${p2Name} fonctionnent à des tempos différents, et tout se joue dans l'ajustement. Quand chacun laisse de la place à l'autre, le mouvement devient une conversation.`;
+    ? `Ensemble, vous formez une équipe qui tourne : l'un lance les idées, l'autre les rend réelles. ${p1Name} et ${p2Name} se complètent au lieu de se marcher dessus, et c'est précisément ce qui fait avancer les choses. Donnez-vous juste assez d'espace pour briller chacun de votre côté, et ça roule.`
+    : `Votre dynamique vient avec un mode d'emploi. ${p1Name} et ${p2Name} n'avancent pas au même tempo, et tant que chacun essaie de caler l'autre sur le sien, ça grince. Le jour où vous faites de la place à la méthode de l'autre, ça se transforme en vraie conversation — et là, c'est fun.`;
 
   // ── Évolution : ce que la relation enseigne ──────────────────────────────
   const evolution = score >= 60
-    ? `Ce lien a de quoi faire grandir : il invite ${p1Name} et ${p2Name} à se révéler un peu plus à chaque étape, au-delà de ce qu'ils auraient imaginé seuls.`
-    : `La promesse de cette relation, c'est l'apprentissage : face à une autre façon d'être, ${p1Name} et ${p2Name} en apprennent autant sur l'autre que sur eux-mêmes.`;
+    ? `Le truc cool, c'est que cette relation vous tire vers le haut. ${p1Name} et ${p2Name} se poussent à tester des choses, à sortir de leur zone de confort, à devenir une version un peu plus aboutie d'eux-mêmes. Avec le temps, vous risquez de construire bien plus grand que ce que vous aviez en tête.`
+    : `Le vrai cadeau ici, c'est l'apprentissage. ${p1Name} et ${p2Name} ne se ressemblent pas, et c'est exactement ce qui rend la relation formatrice : vous apprenez autant sur l'autre que sur vous-mêmes. Pas toujours confortable, souvent payant. Voyez ça comme un entraînement déguisé en relation.`;
 
   return { harmony, tension, dynamic, evolution };
 }

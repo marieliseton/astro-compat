@@ -354,14 +354,19 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
 const PURPLE = '#795275'
 const BG     = '#F3F1E7'
 
+// Chaque catégorie a sa bille métallique premium (couleur distincte).
 const CATEGORIES = [
-  { key:'harmony',   label:'harmonie'  },
-  { key:'tension',   label:'tension'   },
-  { key:'dynamic',   label:'dynamique' },
-  { key:'evolution', label:'évolution' },
+  { key:'harmony',   label:'harmonie',  // or champagne
+    disc:'radial-gradient(circle at 32% 26%, #FBF0CE 0%, #E7CB82 44%, #B8923C 100%)' },
+  { key:'tension',   label:'tension',   // cuivre / rosé
+    disc:'radial-gradient(circle at 32% 26%, #F8DCD0 0%, #D69A86 44%, #A6604E 100%)' },
+  { key:'dynamic',   label:'dynamique', // chrome / argent
+    disc:'radial-gradient(circle at 32% 26%, #FCFCFE 0%, #D6DBE1 44%, #969EAB 100%)' },
+  { key:'evolution', label:'évolution', // graphite / platine
+    disc:'radial-gradient(circle at 32% 26%, #ECEEF1 0%, #B4BAC5 44%, #79828F 100%)' },
 ]
 
-// Pastille « planète » : disque doré 40px + label 10px. État actif/inactif.
+// Bille métallique 40px + label 10px. Couleur propre à la catégorie, sheen métal.
 function PlanetNav({ cat, active, onSelect }) {
   return (
     <button
@@ -374,13 +379,12 @@ function PlanetNav({ cat, active, onSelect }) {
     >
       <span
         style={{
-          width:40, height:40, borderRadius:'50%',
-          background:'radial-gradient(circle at 34% 28%, #F6E8BE 0%, #E7CB82 46%, #C9A24B 100%)',
+          width:40, height:40, borderRadius:'50%', background:cat.disc,
           boxShadow: active
-            ? '0 0 0 3px rgba(121,82,117,0.16), 0 6px 16px rgba(201,162,75,0.5)'
-            : 'inset 0 -2px 5px rgba(150,110,40,0.3)',
-          opacity: active ? 1 : 0.4,
-          transform: active ? 'scale(1)' : 'scale(0.82)',
+            ? 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.28), 0 0 0 3px rgba(121,82,117,0.18), 0 6px 16px rgba(0,0,0,0.22)'
+            : 'inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.18)',
+          opacity: active ? 1 : 0.5,
+          transform: active ? 'scale(1.06)' : 'scale(0.82)',
           transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
         }}
       />
@@ -389,7 +393,7 @@ function PlanetNav({ cat, active, onSelect }) {
           fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
           fontSize:10, lineHeight:'12px', letterSpacing:'-0.04em', textAlign:'center',
           color:'#575757', whiteSpace:'nowrap',
-          opacity: active ? 1 : 0.55, fontWeight: active ? 700 : 400,
+          opacity: active ? 1 : 0.5, fontWeight: active ? 700 : 400,
           transition:'opacity 0.4s ease',
         }}
       >
@@ -422,21 +426,35 @@ function ResultView({ result, onRestart }) {
         <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
           votre compatibilité
         </div>
-        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(200px, 23vh)', lineHeight:0.92, letterSpacing:'-0.04em', color:PURPLE, marginTop:'1.5vh' }}>
-          {result.score}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.5vh' }}>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(200px, 23vh)', lineHeight:0.92, letterSpacing:'-0.04em', color:PURPLE }}>
+            {result.score}
+          </span>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(58px, 6.7vh)', lineHeight:1, letterSpacing:'-0.04em', color:PURPLE, marginTop:'min(26px, 3vh)', marginLeft:4 }}>
+            %
+          </span>
         </div>
       </div>
 
       {/* ── Texte de la catégorie active (zone fondue) ── */}
       <div style={{ flex:'1 1 auto', minHeight:0, width:'min(385px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
-        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(19px, 2.4vw + 6px, 34px)', lineHeight:1.235, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(16px, 1.7vw + 6px, 26px)', lineHeight:1.32, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
           {text}
         </p>
       </div>
 
-      {/* ── Navigation : pastille translucide + 4 disques ── */}
-      <div style={{ flexShrink:0, width:'min(385px, 92vw)', height:98, borderRadius:200, background:'rgba(255,254,247,0.18)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <div style={{ display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
+      {/* ── Navigation : pastille liquid glass (iOS) + 4 billes ── */}
+      <div style={{
+        flexShrink:0, position:'relative', width:'min(385px, 92vw)', height:98, borderRadius:200,
+        background:'rgba(255,255,255,0.14)',
+        backdropFilter:'blur(22px) saturate(180%)', WebkitBackdropFilter:'blur(22px) saturate(180%)',
+        border:'1px solid rgba(255,255,255,0.45)',
+        boxShadow:'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -10px 18px rgba(255,255,255,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.2), 0 10px 30px rgba(121,82,117,0.14)',
+        display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
+      }}>
+        {/* reflet supérieur (sheen liquid glass) */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
+        <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
           {CATEGORIES.map(c => (
             <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
           ))}
