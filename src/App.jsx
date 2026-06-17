@@ -379,15 +379,31 @@ function PlanetNav({ cat, active, onSelect }) {
     >
       <span
         style={{
+          position:'relative', overflow:'hidden',
           width:40, height:40, borderRadius:'50%', background:cat.disc,
           boxShadow: active
-            ? 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.28), 0 0 0 3px rgba(121,82,117,0.18), 0 6px 16px rgba(0,0,0,0.22)'
+            ? 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.28), 0 6px 16px rgba(0,0,0,0.22)'
             : 'inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.18)',
           opacity: active ? 1 : 0.5,
           transform: active ? 'scale(1.06)' : 'scale(0.82)',
           transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
         }}
-      />
+      >
+        {active && (
+          <>
+            {/* surface qui tourne sur elle-même comme une planète */}
+            <span className="pn-spin" style={{
+              position:'absolute', inset:'-25%', borderRadius:'50%', pointerEvents:'none',
+              background:'conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(0,0,0,0.10) 70deg, rgba(255,255,255,0.13) 150deg, rgba(0,0,0,0.08) 230deg, rgba(255,255,255,0) 320deg)',
+            }} />
+            {/* scintillement : éclat spéculaire qui pulse doucement */}
+            <span className="pn-twinkle" style={{
+              position:'absolute', top:'17%', left:'23%', width:9, height:6, borderRadius:'50%', pointerEvents:'none',
+              background:'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)', filter:'blur(0.5px)',
+            }} />
+          </>
+        )}
+      </span>
       <span
         style={{
           fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
@@ -419,7 +435,7 @@ function ResultView({ result, onRestart }) {
   const text = result[shown] || ''
 
   return (
-    <div style={{ position:'absolute', inset:0, background:BG, display:'flex', flexDirection:'column', alignItems:'center', overflow:'hidden', padding:'calc(env(safe-area-inset-top) + 6vh) 20px calc(env(safe-area-inset-bottom) + 26px)' }}>
+    <div className="result-screen" style={{ position:'absolute', inset:0, background:BG, display:'flex', flexDirection:'column', alignItems:'center', overflow:'hidden', padding:'calc(env(safe-area-inset-top) + 6vh) 20px calc(env(safe-area-inset-bottom) + 26px)' }}>
 
       {/* ── Score ── */}
       <div style={{ flexShrink:0, textAlign:'center' }}>
@@ -803,6 +819,18 @@ export default function App() {
             float: left;
             padding: 0.04em 0.09em 0 0;
             font-style: italic;
+          }
+          /* Bille active : rotation lente (planète) + scintillement subtil */
+          @keyframes planetSpin { to { transform: rotate(360deg); } }
+          @keyframes ballTwinkle { 0%,100% { opacity: 0.25; transform: scale(0.9); } 50% { opacity: 0.85; transform: scale(1); } }
+          .pn-spin { animation: planetSpin 16s linear infinite; }
+          .pn-twinkle { animation: ballTwinkle 3.6s ease-in-out infinite; }
+          @media (prefers-reduced-motion: reduce) {
+            .pn-spin, .pn-twinkle { animation: none; }
+          }
+          /* Desktop : on remonte la barre d'onglets (100px sous elle) */
+          @media (min-width: 900px) {
+            .result-screen { padding-bottom: 100px !important; }
           }
         `}</style>
       </div>
