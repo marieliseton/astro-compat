@@ -1,49 +1,53 @@
 import type { Aspect } from './types';
+import { interpretAspects } from './aspect-interpreter';
 
-const PLANET_LABEL: Record<string, string> = {
-  sun: 'Soleil', moon: 'Lune', mercury: 'Mercure', venus: 'Vénus',
-  mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturne',
-  uranus: 'Uranus', neptune: 'Neptune', pluto: 'Pluton',
-  ascendant: 'Ascendant',
-};
+const bullet = (items: string[]): string =>
+  items.length ? items.map(s => `- ${s}`).join('\n') : '- (rien de marquant)';
 
-// Translate an aspect into a brief human-language fragment for the prompt
-function aspectSummary(asp: Aspect): string {
-  const a = PLANET_LABEL[String(asp.planetA)] ?? asp.planetA;
-  const b = PLANET_LABEL[String(asp.planetB)] ?? asp.planetB;
-  const quality = asp.harmonic ? 'lien harmonieux' : 'tension potentielle';
-  return `${a}/${b} (${quality}, orbe ${asp.orb}°)`;
-}
-
-// Build a minimal Gemini prompt — only top aspects to reduce token usage
+// Construit le prompt Gemini : 4 textes par catégorie, chacun ancré dans des
+// indices relationnels réels (déjà traduits sans jargon astrologique).
 export function buildCompatibilityPrompt(
   p1Name: string,
   p2Name: string,
   score: number,
   aspects: Aspect[],
 ): string {
-  const harmonic = aspects.filter(a => a.harmonic).slice(0, 3).map(aspectSummary);
-  const tension  = aspects.filter(a => !a.harmonic).slice(0, 3).map(aspectSummary);
+  const { positive, negative } = interpretAspects(aspects);
+  const harmonyEvidence = bullet(positive.slice(0, 6));
+  const tensionEvidence = bullet(negative.slice(0, 6));
 
-  const harmonicStr = harmonic.length ? harmonic.join(' | ') : 'aucun significatif';
-  const tensionStr  = tension.length  ? tension.join(' | ')  : 'aucune significative';
+  return `Tu écris pour une application de compatibilité au ton premium, éditorial et sensible. Tu analyses la dynamique relationnelle entre deux personnes avec finesse, comme un·e auteur·e, pas comme un horoscope.
 
-  return `Tu es un expert en psychologie relationnelle. Tu analyses les dynamiques humaines de façon bienveillante et précise.
-
-Données entre ${p1Name} et ${p2Name} :
+Personnes : ${p1Name} et ${p2Name}
 Score de compatibilité : ${score}/100
-Liens forts : ${harmonicStr}
-Tensions : ${tensionStr}
 
-Génère une analyse structurée. Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou après.
+Ce qui les rapproche (indices) :
+${harmonyEvidence}
 
-{"resume":"[3 à 5 phrases décrivant la dynamique principale, avec leurs prénoms, spécifique et non générique]","greenFlags":["[force 1]","[force 2]","[force 3]"],"redFlags":["[défi bienveillant 1]","[défi bienveillant 2]","[défi bienveillant 3]"],"dynamique":{"paragraphe":"[paragraphe de synthèse sur comment ils interagissent]","points":["[point 1]","[point 2]","[point 3]"]}}
+Ce qui crée de la friction (indices) :
+${tensionEvidence}
 
-Règles absolues :
-- Zéro vocabulaire astrologique (planète, signe, trigone, carré, aspect, maison, etc.)
-- Utilise ${p1Name} et ${p2Name} dans le résumé
-- Langage psychologique et relationnel uniquement
-- Ne suppose aucune relation amoureuse, romantique ou sexuelle
-- 3 à 5 éléments dans greenFlags et redFlags
-- Ton bienveillant, direct, sans clichés ni généralités`;
+Produis EXACTEMENT cet objet JSON, sans markdown, sans backticks, sans rien avant ni après :
+
+{"harmony":"...","tension":"...","dynamic":"...","evolution":"..."}
+
+Sens de chaque catégorie :
+- harmony   : ce qui rapproche naturellement ${p1Name} et ${p2Name}, ce qui se reconnaît sans effort.
+- tension   : les zones de friction potentielles, dites avec honnêteté et sans dramatiser.
+- dynamic   : leur manière concrète d'interagir, le rythme et la chorégraphie de la relation.
+- evolution : ce que cette relation peut leur apporter ou leur enseigner, vers quoi elle peut grandir.
+
+Chaque texte doit avoir une PERSONNALITÉ distincte pour qu'on devine la catégorie même sans son titre :
+- harmony : chaleureux, lumineux, intime — le registre de la proximité et de l'évidence.
+- tension : lucide, un peu plus tranchant, jamais cruel — le registre de l'écart et de l'ajustement.
+- dynamic : vivant, au présent, observateur — le registre du mouvement et de l'interaction.
+- evolution : ample, tourné vers l'avenir, porteur — le registre du devenir et de l'apprentissage.
+
+Contraintes absolues :
+- Le score (${score}/100) doit transparaître dans le ton : harmony et evolution plus pleins quand il est haut ; tension plus présente quand il est bas.
+- ZÉRO vocabulaire astrologique : aucun mot comme planète, signe, maison, trigone, sextile, carré, opposition, aspect, ascendant, thème.
+- 2 à 3 phrases par texte. Court, aéré, premium. Pas de remplissage, pas de cliché, pas de généralité passe-partout.
+- Cite ${p1Name} et/ou ${p2Name} dans au moins deux des quatre textes.
+- Ne suppose aucune relation amoureuse, romantique ou sexuelle.
+- Français soigné, poétique mais précis.`;
 }

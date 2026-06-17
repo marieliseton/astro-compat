@@ -50,8 +50,15 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
               const match = text.match(/\{[\s\S]*\}/)
               if (match) {
                 const parsed = JSON.parse(match[0])
-                if (parsed.resume && Array.isArray(parsed.greenFlags) && Array.isArray(parsed.redFlags) && parsed.dynamique) {
-                  return { content: parsed, source: 'gemini' }
+                const ok = ['harmony','tension','dynamic','evolution']
+                  .every(k => typeof parsed[k] === 'string' && parsed[k].trim().length > 0)
+                if (ok) {
+                  return { content: {
+                    harmony: parsed.harmony.trim(),
+                    tension: parsed.tension.trim(),
+                    dynamic: parsed.dynamic.trim(),
+                    evolution: parsed.evolution.trim(),
+                  }, source: 'gemini' }
                 }
               }
             } catch { /* essayer le modèle suivant */ }
@@ -67,37 +74,6 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
   }
   console.log('[astro] fallback local:', lastError)
   return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback', reason: lastError }
-}
-
-// ── Chartes natales display ───────────────────────────────────────────────────
-
-const PLANET_SYMBOLS = {
-  sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
-  jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇', ascendant:'↑',
-}
-const SIGNS_FR = {
-  Aries:'Bélier', Taurus:'Taureau', Gemini:'Gémeaux', Cancer:'Cancer',
-  Leo:'Lion', Virgo:'Vierge', Libra:'Balance', Scorpio:'Scorpion',
-  Sagittarius:'Sagittaire', Capricorn:'Capricorne', Aquarius:'Verseau', Pisces:'Poissons',
-}
-const CHART_PLANETS = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto','ascendant']
-
-function buildChartsDisplay(chart1, chart2, p1Name, p2Name) {
-  function toDisplay(chart, name) {
-    if (!chart) return { name, rows: [] }
-    return {
-      name,
-      rows: CHART_PLANETS.map(key => {
-        if (key === 'ascendant') {
-          const asc = chart.ascendant
-          return { symbol: PLANET_SYMBOLS.ascendant, sign: SIGNS_FR[asc.sign] ?? asc.sign, house: null }
-        }
-        const pos = chart[key]
-        return { symbol: PLANET_SYMBOLS[key], sign: SIGNS_FR[pos.sign] ?? pos.sign, house: pos.house }
-      }),
-    }
-  }
-  return { p1: toDisplay(chart1, p1Name), p2: toDisplay(chart2, p2Name) }
 }
 
 async function getTimezone(lat, lng) {
@@ -370,21 +346,117 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   )
 }
 
-// ── Accordéon ─────────────────────────────────────────────────────────────────
+// ── Résultat : expérience à onglets ─────────────────────────────────────────
+// Score → catégorie active → texte → navigation entre 4 planètes.
+// Pas de scroll, pas d'accordéon. Transition fondu entre catégories.
 
-function Accordion({ title, children }) {
-  const [open, setOpen] = useState(false)
-  const SERIF = { fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }
+const PURPLE = '#795275'
+
+const CATEGORIES = [
+  { key:'harmony',   label:'harmonie',   symbol:'☉' },
+  { key:'tension',   label:'tension',    symbol:'♂' },
+  { key:'dynamic',   label:'dynamique',  symbol:'☿' },
+  { key:'evolution', label:'évolution',  symbol:'♄' },
+]
+
+// Pastille « planète » : disque doré texturé + symbole, état actif/inactif.
+function PlanetNav({ cat, active, onSelect }) {
   return (
-    <div style={{ width:'min(353px, 88vw)', borderTop:'1px solid rgba(121,82,117,0.25)', marginTop:12 }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ ...SERIF, width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0', background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#795275' }}
+    <button
+      onClick={() => onSelect(cat.key)}
+      aria-pressed={active}
+      style={{
+        background:'none', border:'none', padding:0, cursor:'pointer',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+        flex:1,
+      }}
+    >
+      <span
+        style={{
+          width:52, height:52, borderRadius:'50%',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontFamily:"'Apple Symbols','Segoe UI Symbol',serif", fontStyle:'normal',
+          fontSize:20, color: active ? '#6B4A23' : '#8a7a55',
+          background:'radial-gradient(circle at 34% 28%, #F6E8BE 0%, #E7CB82 46%, #C9A24B 100%)',
+          boxShadow: active
+            ? '0 0 0 4px rgba(121,82,117,0.14), 0 8px 20px rgba(201,162,75,0.45), inset 0 -3px 6px rgba(150,110,40,0.35)'
+            : 'inset 0 -3px 6px rgba(150,110,40,0.3)',
+          opacity: active ? 1 : 0.42,
+          transform: active ? 'scale(1)' : 'scale(0.8)',
+          transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
+        }}
       >
-        <span>{title}</span>
-        <span style={{ fontStyle:'normal', fontSize:22, lineHeight:1, display:'inline-block', transition:'transform 0.2s', transform: open ? 'rotate(45deg)' : 'rotate(0deg)' }}>+</span>
+        {cat.symbol}
+      </span>
+      <span
+        style={{
+          fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:13,
+          letterSpacing:'-0.03em', color:PURPLE,
+          opacity: active ? 1 : 0.45,
+          fontWeight: active ? 600 : 400,
+          transition:'opacity 0.4s ease',
+        }}
+      >
+        {cat.label}
+      </span>
+    </button>
+  )
+}
+
+function ResultView({ result, onRestart }) {
+  const [active, setActive] = useState('harmony')
+  const [shown, setShown]   = useState('harmony')
+  const [visible, setVisible] = useState(true)
+
+  // Fondu : sortie complète → changement de contenu → entrée.
+  // Le délai (320ms) dépasse la transition d'opacité (300ms) pour que le
+  // contenu ne change qu'une fois totalement invisible.
+  useEffect(() => {
+    if (active === shown) return
+    setVisible(false)
+    const t = setTimeout(() => { setShown(active); setVisible(true) }, 320)
+    return () => clearTimeout(t)
+  }, [active, shown])
+
+  const cat  = CATEGORIES.find(c => c.key === shown) || CATEGORIES[0]
+  const text = result[shown] || ''
+
+  return (
+    <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', padding:'calc(env(safe-area-inset-top) + 48px) 24px calc(env(safe-area-inset-bottom) + 22px)', overflow:'hidden' }}>
+
+      {/* ── Score ── */}
+      <div style={{ flexShrink:0, textAlign:'center' }}>
+        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:21, letterSpacing:'-0.04em', color:PURPLE, opacity:0.85 }}>
+          votre compatibilité
+        </div>
+        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(96px, 21vh, 140px)', lineHeight:0.95, letterSpacing:'-0.04em', color:PURPLE, marginTop:6 }}>
+          {result.score}
+        </div>
+      </div>
+
+      {/* ── Catégorie active + texte (zone fondue) ── */}
+      <div style={{ flex:'1 1 auto', minHeight:0, width:'min(360px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
+        <div style={{ opacity:visible?1:0, transition:'opacity 0.3s ease' }}>
+          <div style={{ textAlign:'center', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:9 }}>
+            <span style={{ fontFamily:"'Apple Symbols','Segoe UI Symbol',serif", fontSize:18, color:PURPLE, opacity:0.7 }}>{cat.symbol}</span>
+            <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, letterSpacing:'-0.02em', color:PURPLE, textTransform:'capitalize' }}>{cat.label}</span>
+          </div>
+          <p className="cat-text" style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(17px, 2.3vh, 20px)', lineHeight:1.55, letterSpacing:'-0.03em', color:PURPLE, textAlign:'left', margin:0 }}>
+            {text}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Navigation entre catégories ── */}
+      <div style={{ flexShrink:0, width:'min(360px, 92vw)', display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:6, padding:'16px 14px 14px', background:'rgba(255,255,255,0.45)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', borderRadius:26, boxShadow:'0 8px 30px rgba(121,82,117,0.12)' }}>
+        {CATEGORIES.map(c => (
+          <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
+        ))}
+      </div>
+
+      <button onClick={onRestart} style={{ flexShrink:0, marginTop:16, fontFamily:"'IM Fell DW Pica',serif", fontSize:15, letterSpacing:'-0.04em', color:PURPLE, opacity:0.7, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>
+        recommencer
       </button>
-      {open && <div style={{ paddingBottom:16 }}>{children}</div>}
     </div>
   )
 }
@@ -617,16 +689,14 @@ export default function App() {
       const birthData1 = { year:d1.year, month:d1.month, day:d1.day, hour:t1.hour, minute:t1.minute, latitude:geo1.lat, longitude:geo1.lng, timezone:geo1.tz }
       const birthData2 = { year:d2.year, month:d2.month, day:d2.day, hour:t2.hour, minute:t2.minute, latitude:geo2.lat, longitude:geo2.lng, timezone:geo2.tz }
 
-      // Charts are local+fast — compute always so cache hits still show them
       const chart1 = calculateChart(birthData1)
       const chart2 = calculateChart(birthData2)
-      const charts = buildChartsDisplay(chart1, chart2, p1.prenom, p2.prenom)
 
       const cacheKey1 = `${p1.prenom}|${p1.dateRaw}`
       const cacheKey2 = `${p2.prenom}|${p2.dateRaw}`
       const cached = compatibilityCache.get(p1.prenom, cacheKey1, p2.prenom, cacheKey2)
       if (cached) {
-        setResult({ score: cached.score, ...cached.content, charts })
+        setResult({ score: cached.score, ...cached.content })
         return
       }
 
@@ -639,7 +709,7 @@ export default function App() {
       if (source==='fallback') console.log('[astro] fallback:', reason)
 
       compatibilityCache.set(p1.prenom, cacheKey1, p2.prenom, cacheKey2, score, content)
-      setResult({ score, ...content, charts })
+      setResult({ score, ...content })
     } catch(err) {
       setResult({ error: err.message })
     } finally {
@@ -698,70 +768,7 @@ export default function App() {
         <div style={{ position:'absolute', inset:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
           {loading && <TourbillonLoader />}
           {!loading && result && !result.error && (
-            <div style={{ position:'absolute', inset:0, overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
-
-                <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
-
-                <div style={{ display:'flex', alignItems:'flex-start' }}>
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:160, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275' }}>{result.score}</div>
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:36, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275', marginTop:18 }}>%</div>
-                </div>
-
-                <div style={{ width:'min(353px, 88vw)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, lineHeight:'30px', letterSpacing:'-0.04em', color:'#795275', marginTop:32, textAlign:'left' }}>
-                  {result.resume}
-                </div>
-
-                <Accordion title="🌿 Green Flags">
-                  {(result.greenFlags || []).map((flag, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>🌿</span><span>{flag}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="🚩 Red Flags">
-                  {(result.redFlags || []).map((flag, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>🚩</span><span>{flag}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="✨ Votre dynamique">
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:14 }}>
-                    {result.dynamique?.paragraphe}
-                  </div>
-                  {(result.dynamique?.points || []).map((point, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:8, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>•</span><span>{point}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="♋ Vos chartes">
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-                    {[result.charts?.p1, result.charts?.p2].filter(Boolean).map((chart, ci) => (
-                      <div key={ci}>
-                        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:17, letterSpacing:'-0.04em', color:'#795275', marginBottom:8, borderBottom:'1px solid rgba(121,82,117,0.2)', paddingBottom:6 }}>
-                          {chart.name}
-                        </div>
-                        {chart.rows.map((row, i) => (
-                          <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:15, lineHeight:'22px', letterSpacing:'-0.04em', color:'#795275', marginBottom:3, display:'flex', gap:5, alignItems:'baseline' }}>
-                            <span style={{ fontStyle:'normal', width:18, flexShrink:0, textAlign:'center' }}>{row.symbol}</span>
-                            <span style={{ flex:1 }}>{row.sign}{row.house ? <span style={{ opacity:0.55, fontSize:12 }}> M.{row.house}</span> : null}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </Accordion>
-
-                <div style={{ width:'min(353px, 88vw)', height:1, background:'rgba(121,82,117,0.25)', marginTop:16 }} />
-
-                <button onClick={restart} style={{ marginTop:32, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
-              </div>
-            </div>
+            <ResultView result={result} onRestart={restart} />
           )}
           {!loading && result?.error && (
             <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', padding:20, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', color:'#795275', fontSize:20 }}>
@@ -783,6 +790,13 @@ export default function App() {
         <style>{`
           .dots::after { content:''; animation:dots 1.2s steps(4,end) infinite; }
           @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+          .cat-text::first-letter {
+            font-size: 3.1em;
+            line-height: 0.72;
+            float: left;
+            padding: 0.04em 0.09em 0 0;
+            font-style: italic;
+          }
         `}</style>
       </div>
     </>
