@@ -17,8 +17,8 @@ html[data-screen="2"] body { background-color: #FF589B; } /* bord haut du dégra
 html[data-screen="3"] { background: linear-gradient(180deg, #78D119 0%, #FFF827 100%) fixed; }
 html[data-screen="3"] body { background-color: #78D119; } /* bord haut du dégradé */
 
-html[data-screen="4"] { background: #FFFEEE; }
-html[data-screen="4"] body { background-color: #FFFEEE; }
+html[data-screen="4"] { background: #F3F1E7; }
+html[data-screen="4"] body { background-color: #F3F1E7; }
 
 /* ─── Base ────────────────────────────────────────────────────────────────── */
 

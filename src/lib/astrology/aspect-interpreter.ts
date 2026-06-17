@@ -39,7 +39,8 @@ const TRANSLATIONS: Record<string, Translation> = {
   'mercury-saturn':  { harmonic: 'L\'un apporte de la rigueur et de la profondeur aux échanges de l\'autre.', discordant: 'L\'un peut parfois ressentir que l\'autre n\'est pas pleinement disponible dans les échanges.' },
 };
 
-const HARMONIC_TYPES = new Set(['trine', 'sextile', 'conjunction']);
+// 'ascendant' → 'asc' pour matcher les clés de TRANSLATIONS.
+const normKey = (k: string): string => (k === 'ascendant' ? 'asc' : k);
 
 export function interpretAspects(aspects: Aspect[]): { positive: string[]; negative: string[] } {
   const positive: string[] = [];
@@ -47,7 +48,7 @@ export function interpretAspects(aspects: Aspect[]): { positive: string[]; negat
   const used = new Set<string>();
 
   for (const asp of aspects) {
-    const pair = [String(asp.planetA), String(asp.planetB)].sort().join('-');
+    const pair = [normKey(String(asp.planetA)), normKey(String(asp.planetB))].sort().join('-');
     const tr = TRANSLATIONS[pair];
     if (!tr) continue;
 
@@ -62,52 +63,34 @@ export function interpretAspects(aspects: Aspect[]): { positive: string[]; negat
   return { positive, negative };
 }
 
-// Fallback: build structured content locally from aspect data
+// Fallback local : produit les 4 textes par catégorie à partir des aspects.
+// Chaque catégorie garde sa voix propre, sans jargon astrologique.
 export function buildLocalContent(
   aspects: Aspect[],
   p1Name: string,
   p2Name: string,
   score: number,
 ): import('./types').StructuredContent {
-  const { positive, negative } = interpretAspects(aspects);
+  // Textes plus longs, directs et fun (~65 mots max). Voix distincte par onglet.
+  // ── Harmonie : ce qui rapproche ──────────────────────────────────────────
+  const harmony = score >= 60
+    ? `Soyons clairs : ${p1Name} et ${p2Name}, ça matche. Vous attrapez les blagues de l'autre au vol et vous tombez d'accord sur l'essentiel sans même y réfléchir. Il y a ce petit confort de te sentir compris·e sans avoir à faire un dessin. Le genre de complicité qui rend même les trucs banals carrément agréables.`
+    : `Pas de coup de foudre évident ici, mais ne zappez pas trop vite. ${p1Name} et ${p2Name} ont plus de points communs qu'il n'y paraît — il faut juste gratter un peu. Et quand le courant passe, il passe pour de vrai. C'est souvent là, dans les petits moments, que ça devient intéressant.`;
 
-  const genericPos = [
-    'Vous êtes capables de vous soutenir mutuellement dans les moments importants.',
-    'Il existe entre vous une base de respect mutuel solide.',
-    'Votre relation a le potentiel de vous faire grandir chacun à votre façon.',
-  ];
-  const genericNeg = [
-    'Certains moments nécessiteront plus d\'écoute et de patience.',
-    'Des attentes non exprimées pourraient créer des tensions si elles s\'accumulent.',
-    'Vos différences demandent parfois un effort conscient pour être comprises.',
-  ];
+  // ── Tension : zones de friction ──────────────────────────────────────────
+  const tension = score >= 55
+    ? `Là où ça frotte ? Vous ne carburez pas toujours au même rythme. L'un fonce pendant que l'autre veut peser le pour et le contre, et ces décalages peuvent agacer si personne ne lâche du lest. Rien de dramatique — juste les classiques à surveiller avant que ça monte en sauce.`
+    : `Autant le dire : il y a du sport. Vos façons de réagir partent vite dans des directions opposées, et ce qui semble évident pour l'un paraît complètement à côté de la plaque pour l'autre. Bonne nouvelle : poser le truc à voix haute désamorce 90 % des étincelles. Encore faut-il oser.`;
 
-  const greenFlags = [...positive];
-  const redFlags   = [...negative];
-  let gi = 0; while (greenFlags.length < 3) greenFlags.push(genericPos[gi++ % genericPos.length]);
-  let ri = 0; while (redFlags.length   < 3) redFlags.push(genericNeg[ri++ % genericNeg.length]);
-  greenFlags.length = Math.min(greenFlags.length, 5);
-  redFlags.length   = Math.min(redFlags.length, 5);
+  // ── Dynamique : leur manière d'interagir ─────────────────────────────────
+  const dynamic = score >= 60
+    ? `Ensemble, vous formez une équipe qui tourne : l'un lance les idées, l'autre les rend réelles. ${p1Name} et ${p2Name} se complètent au lieu de se marcher dessus, et c'est précisément ce qui fait avancer les choses. Donnez-vous juste assez d'espace pour briller chacun de votre côté, et ça roule.`
+    : `Votre dynamique vient avec un mode d'emploi. ${p1Name} et ${p2Name} n'avancent pas au même tempo, et tant que chacun essaie de caler l'autre sur le sien, ça grince. Le jour où vous faites de la place à la méthode de l'autre, ça se transforme en vraie conversation — et là, c'est fun.`;
 
-  const resume = score >= 75
-    ? `${p1Name} et ${p2Name} partagent une dynamique relationnelle particulièrement fluide. Leurs façons d'être se complètent sur des points essentiels, créant une base solide pour se comprendre et s'appuyer mutuellement. Cette relation a tout pour évoluer dans un climat de confiance et de croissance partagée.`
-    : score >= 60
-    ? `La relation entre ${p1Name} et ${p2Name} est riche en potentiel, même si elle demande une certaine conscience des différences de chacun. Leurs forces se rejoignent sur plusieurs points importants, tout en laissant de la place pour apprendre de l'autre. Avec un peu d'attention mutuelle, ce lien peut devenir très enrichissant.`
-    : score >= 45
-    ? `${p1Name} et ${p2Name} ont des tempéraments qui peuvent se stimuler mutuellement, même si cela passe parfois par des ajustements. Leurs différences sont réelles mais peuvent aussi devenir une source de complémentarité si elles sont accueillies plutôt que combattues. La clé de ce lien réside dans la communication et la patience.`
-    : `La dynamique entre ${p1Name} et ${p2Name} demande un effort conscient pour trouver un terrain commun. Leurs tempéraments suffisamment différents pour créer des incompréhensions, mais chaque défi est aussi une opportunité d'apprendre. Avec de la bienveillance et de la clarté, ce lien peut évoluer positivement.`;
+  // ── Évolution : ce que la relation enseigne ──────────────────────────────
+  const evolution = score >= 60
+    ? `Le truc cool, c'est que cette relation vous tire vers le haut. ${p1Name} et ${p2Name} se poussent à tester des choses, à sortir de leur zone de confort, à devenir une version un peu plus aboutie d'eux-mêmes. Avec le temps, vous risquez de construire bien plus grand que ce que vous aviez en tête.`
+    : `Le vrai cadeau ici, c'est l'apprentissage. ${p1Name} et ${p2Name} ne se ressemblent pas, et c'est exactement ce qui rend la relation formatrice : vous apprenez autant sur l'autre que sur vous-mêmes. Pas toujours confortable, souvent payant. Voyez ça comme un entraînement déguisé en relation.`;
 
-  const dynPara = score >= 60
-    ? `Cette relation fonctionne davantage sur la complémentarité que sur la similitude. ${p1Name} et ${p2Name} s'apportent mutuellement des perspectives différentes qui enrichissent chacun à sa façon.`
-    : `La dynamique entre ${p1Name} et ${p2Name} invite à une forme d'apprentissage mutuel. Leurs différences, bien que parfois source de friction, sont aussi ce qui rend ce lien unique et porteur de sens.`;
-
-  const dynPoints = [
-    positive[0] ?? genericPos[0],
-    negative[0]
-      ? 'Ce qui peut sembler être un défi est souvent ce qui les invite à grandir l\'un grâce à l\'autre.'
-      : 'L\'un apporte ce que l\'autre cherche parfois à développer en lui-même.',
-    'Cette relation vous invite chacun à mieux vous connaître en vous confrontant à une autre façon d\'être.',
-  ];
-
-  return { resume, greenFlags, redFlags, dynamique: { paragraphe: dynPara, points: dynPoints } };
+  return { harmony, tension, dynamic, evolution };
 }

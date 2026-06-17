@@ -1,7 +1,9 @@
 import type { StructuredContent } from './types';
 
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const PREFIX = 'astro_compat_';
+// v2 : nouvelle forme de contenu (harmony/tension/dynamic/evolution).
+// Le suffixe invalide les entrées de l'ancien format encore en cache.
+const PREFIX = 'astro_compat_v2_';
 
 interface CacheEntry {
   score: number;

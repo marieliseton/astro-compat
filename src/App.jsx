@@ -50,8 +50,15 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
               const match = text.match(/\{[\s\S]*\}/)
               if (match) {
                 const parsed = JSON.parse(match[0])
-                if (parsed.resume && Array.isArray(parsed.greenFlags) && Array.isArray(parsed.redFlags) && parsed.dynamique) {
-                  return { content: parsed, source: 'gemini' }
+                const ok = ['harmony','tension','dynamic','evolution']
+                  .every(k => typeof parsed[k] === 'string' && parsed[k].trim().length > 0)
+                if (ok) {
+                  return { content: {
+                    harmony: parsed.harmony.trim(),
+                    tension: parsed.tension.trim(),
+                    dynamic: parsed.dynamic.trim(),
+                    evolution: parsed.evolution.trim(),
+                  }, source: 'gemini' }
                 }
               }
             } catch { /* essayer le modèle suivant */ }
@@ -67,37 +74,6 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
   }
   console.log('[astro] fallback local:', lastError)
   return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback', reason: lastError }
-}
-
-// ── Chartes natales display ───────────────────────────────────────────────────
-
-const PLANET_SYMBOLS = {
-  sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
-  jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇', ascendant:'↑',
-}
-const SIGNS_FR = {
-  Aries:'Bélier', Taurus:'Taureau', Gemini:'Gémeaux', Cancer:'Cancer',
-  Leo:'Lion', Virgo:'Vierge', Libra:'Balance', Scorpio:'Scorpion',
-  Sagittarius:'Sagittaire', Capricorn:'Capricorne', Aquarius:'Verseau', Pisces:'Poissons',
-}
-const CHART_PLANETS = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto','ascendant']
-
-function buildChartsDisplay(chart1, chart2, p1Name, p2Name) {
-  function toDisplay(chart, name) {
-    if (!chart) return { name, rows: [] }
-    return {
-      name,
-      rows: CHART_PLANETS.map(key => {
-        if (key === 'ascendant') {
-          const asc = chart.ascendant
-          return { symbol: PLANET_SYMBOLS.ascendant, sign: SIGNS_FR[asc.sign] ?? asc.sign, house: null }
-        }
-        const pos = chart[key]
-        return { symbol: PLANET_SYMBOLS[key], sign: SIGNS_FR[pos.sign] ?? pos.sign, house: pos.house }
-      }),
-    }
-  }
-  return { p1: toDisplay(chart1, p1Name), p2: toDisplay(chart2, p2Name) }
 }
 
 async function getTimezone(lat, lng) {
@@ -370,21 +346,140 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   )
 }
 
-// ── Accordéon ─────────────────────────────────────────────────────────────────
+// ── Résultat : expérience à onglets (specs Figma) ───────────────────────────
+// Score → texte de la catégorie active → navigation entre 4 catégories.
+// Pas de scroll, pas d'accordéon. Transition fondu entre catégories.
+// Fond #F3F1E7, score 200px, texte 34/42, pastille 385×98 r200, disques 40px.
 
-function Accordion({ title, children }) {
-  const [open, setOpen] = useState(false)
-  const SERIF = { fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }
+const PURPLE = '#795275'
+const BG     = '#F3F1E7'
+
+// Chaque catégorie a sa bille métallique premium (couleur distincte).
+const CATEGORIES = [
+  { key:'harmony',   label:'harmonie',  // or champagne
+    disc:'radial-gradient(circle at 32% 26%, #FBF0CE 0%, #E7CB82 44%, #B8923C 100%)' },
+  { key:'tension',   label:'tension',   // cuivre / rosé
+    disc:'radial-gradient(circle at 32% 26%, #F8DCD0 0%, #D69A86 44%, #A6604E 100%)' },
+  { key:'dynamic',   label:'dynamique', // chrome / argent
+    disc:'radial-gradient(circle at 32% 26%, #FCFCFE 0%, #D6DBE1 44%, #969EAB 100%)' },
+  { key:'evolution', label:'évolution', // graphite / platine
+    disc:'radial-gradient(circle at 32% 26%, #ECEEF1 0%, #B4BAC5 44%, #79828F 100%)' },
+]
+
+// Bille métallique 40px + label 10px. Couleur propre à la catégorie, sheen métal.
+function PlanetNav({ cat, active, onSelect }) {
   return (
-    <div style={{ width:'min(353px, 88vw)', borderTop:'1px solid rgba(121,82,117,0.25)', marginTop:12 }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ ...SERIF, width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0', background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#795275' }}
+    <button
+      onClick={() => onSelect(cat.key)}
+      aria-pressed={active}
+      style={{
+        background:'none', border:'none', padding:0, cursor:'pointer',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+      }}
+    >
+      <span
+        style={{
+          position:'relative', overflow:'hidden',
+          width:40, height:40, borderRadius:'50%', background:cat.disc,
+          boxShadow: active
+            ? 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.28), 0 6px 16px rgba(0,0,0,0.22)'
+            : 'inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.18)',
+          opacity: active ? 1 : 0.5,
+          transform: active ? 'scale(1.06)' : 'scale(0.82)',
+          transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
+        }}
       >
-        <span>{title}</span>
-        <span style={{ fontStyle:'normal', fontSize:22, lineHeight:1, display:'inline-block', transition:'transform 0.2s', transform: open ? 'rotate(45deg)' : 'rotate(0deg)' }}>+</span>
+        {active && (
+          <>
+            {/* surface qui tourne sur elle-même comme une planète */}
+            <span className="pn-spin" style={{
+              position:'absolute', inset:'-25%', borderRadius:'50%', pointerEvents:'none',
+              background:'conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(0,0,0,0.10) 70deg, rgba(255,255,255,0.13) 150deg, rgba(0,0,0,0.08) 230deg, rgba(255,255,255,0) 320deg)',
+            }} />
+            {/* scintillement : éclat spéculaire qui pulse doucement */}
+            <span className="pn-twinkle" style={{
+              position:'absolute', top:'17%', left:'23%', width:9, height:6, borderRadius:'50%', pointerEvents:'none',
+              background:'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)', filter:'blur(0.5px)',
+            }} />
+          </>
+        )}
+      </span>
+      <span
+        style={{
+          fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
+          fontSize:10, lineHeight:'12px', letterSpacing:'-0.04em', textAlign:'center',
+          color:'#575757', whiteSpace:'nowrap',
+          opacity: active ? 1 : 0.5, fontWeight: active ? 700 : 400,
+          transition:'opacity 0.4s ease',
+        }}
+      >
+        {cat.label}
+      </span>
+    </button>
+  )
+}
+
+function ResultView({ result, onRestart }) {
+  const [active, setActive]   = useState('harmony')
+  const [shown, setShown]     = useState('harmony')
+  const [visible, setVisible] = useState(true)
+
+  // Fondu : sortie complète → changement de contenu → entrée.
+  useEffect(() => {
+    if (active === shown) return
+    setVisible(false)
+    const t = setTimeout(() => { setShown(active); setVisible(true) }, 320)
+    return () => clearTimeout(t)
+  }, [active, shown])
+
+  const text = result[shown] || ''
+
+  return (
+    <div className="result-screen" style={{ position:'absolute', inset:0, background:BG, display:'flex', flexDirection:'column', alignItems:'center', overflow:'hidden', padding:'calc(env(safe-area-inset-top) + 6vh) 20px calc(env(safe-area-inset-bottom) + 26px)' }}>
+
+      {/* ── Score ── */}
+      <div style={{ flexShrink:0, textAlign:'center' }}>
+        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
+          votre compatibilité
+        </div>
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.5vh' }}>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(200px, 23vh)', lineHeight:0.92, letterSpacing:'-0.04em', color:PURPLE }}>
+            {result.score}
+          </span>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(58px, 6.7vh)', lineHeight:1, letterSpacing:'-0.04em', color:PURPLE, marginTop:'min(26px, 3vh)', marginLeft:4 }}>
+            %
+          </span>
+        </div>
+      </div>
+
+      {/* ── Texte de la catégorie active (zone fondue) ── */}
+      <div style={{ flex:'1 1 auto', minHeight:0, width:'min(385px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
+        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(16px, 1.7vw + 6px, 26px)', lineHeight:1.32, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+          {text}
+        </p>
+      </div>
+
+      {/* ── Navigation : pastille liquid glass (iOS) + 4 billes ── */}
+      <div style={{
+        flexShrink:0, position:'relative', width:'min(385px, 92vw)', height:98, borderRadius:200,
+        background:'rgba(255,255,255,0.14)',
+        backdropFilter:'blur(22px) saturate(180%)', WebkitBackdropFilter:'blur(22px) saturate(180%)',
+        border:'1px solid rgba(255,255,255,0.45)',
+        boxShadow:'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -10px 18px rgba(255,255,255,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.2), 0 10px 30px rgba(121,82,117,0.14)',
+        display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
+      }}>
+        {/* reflet supérieur (sheen liquid glass) */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
+        <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
+          {CATEGORIES.map(c => (
+            <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
+          ))}
+        </div>
+      </div>
+
+      <button onClick={onRestart} style={{ flexShrink:0, marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
+        recommencer
       </button>
-      {open && <div style={{ paddingBottom:16 }}>{children}</div>}
     </div>
   )
 }
@@ -579,8 +674,8 @@ function StarGrid() {
 
 // ── Constantes écran ──────────────────────────────────────────────────────────
 
-const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#FFFEEE' }
-const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#FFFEEE' }
+const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#F3F1E7' }
+const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#F3F1E7' }
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -617,16 +712,14 @@ export default function App() {
       const birthData1 = { year:d1.year, month:d1.month, day:d1.day, hour:t1.hour, minute:t1.minute, latitude:geo1.lat, longitude:geo1.lng, timezone:geo1.tz }
       const birthData2 = { year:d2.year, month:d2.month, day:d2.day, hour:t2.hour, minute:t2.minute, latitude:geo2.lat, longitude:geo2.lng, timezone:geo2.tz }
 
-      // Charts are local+fast — compute always so cache hits still show them
       const chart1 = calculateChart(birthData1)
       const chart2 = calculateChart(birthData2)
-      const charts = buildChartsDisplay(chart1, chart2, p1.prenom, p2.prenom)
 
       const cacheKey1 = `${p1.prenom}|${p1.dateRaw}`
       const cacheKey2 = `${p2.prenom}|${p2.dateRaw}`
       const cached = compatibilityCache.get(p1.prenom, cacheKey1, p2.prenom, cacheKey2)
       if (cached) {
-        setResult({ score: cached.score, ...cached.content, charts })
+        setResult({ score: cached.score, ...cached.content })
         return
       }
 
@@ -639,7 +732,7 @@ export default function App() {
       if (source==='fallback') console.log('[astro] fallback:', reason)
 
       compatibilityCache.set(p1.prenom, cacheKey1, p2.prenom, cacheKey2, score, content)
-      setResult({ score, ...content, charts })
+      setResult({ score, ...content })
     } catch(err) {
       setResult({ error: err.message })
     } finally {
@@ -695,73 +788,10 @@ export default function App() {
         />
 
         {/* ── SCREEN 4 ── */}
-        <div style={{ position:'absolute', inset:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
+        <div style={{ position:'absolute', inset:0, background:'#F3F1E7', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
           {loading && <TourbillonLoader />}
           {!loading && result && !result.error && (
-            <div style={{ position:'absolute', inset:0, overflowY:'auto', WebkitOverflowScrolling:'touch', background:'#FFFEEE' }}>
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:80, paddingBottom:80 }}>
-
-                <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', textAlign:'center', letterSpacing:'-0.04em', color:'#795275', marginBottom:16 }}>votre compatibilité</div>
-
-                <div style={{ display:'flex', alignItems:'flex-start' }}>
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:160, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275' }}>{result.score}</div>
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:36, lineHeight:'1', letterSpacing:'-0.04em', color:'#795275', marginTop:18 }}>%</div>
-                </div>
-
-                <div style={{ width:'min(353px, 88vw)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:20, lineHeight:'30px', letterSpacing:'-0.04em', color:'#795275', marginTop:32, textAlign:'left' }}>
-                  {result.resume}
-                </div>
-
-                <Accordion title="🌿 Green Flags">
-                  {(result.greenFlags || []).map((flag, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>🌿</span><span>{flag}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="🚩 Red Flags">
-                  {(result.redFlags || []).map((flag, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:12, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>🚩</span><span>{flag}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="✨ Votre dynamique">
-                  <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:14 }}>
-                    {result.dynamique?.paragraphe}
-                  </div>
-                  {(result.dynamique?.points || []).map((point, i) => (
-                    <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:18, lineHeight:'28px', letterSpacing:'-0.04em', color:'#795275', marginBottom:8, display:'flex', gap:10, alignItems:'flex-start' }}>
-                      <span style={{ flexShrink:0 }}>•</span><span>{point}</span>
-                    </div>
-                  ))}
-                </Accordion>
-
-                <Accordion title="♋ Vos chartes">
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-                    {[result.charts?.p1, result.charts?.p2].filter(Boolean).map((chart, ci) => (
-                      <div key={ci}>
-                        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:17, letterSpacing:'-0.04em', color:'#795275', marginBottom:8, borderBottom:'1px solid rgba(121,82,117,0.2)', paddingBottom:6 }}>
-                          {chart.name}
-                        </div>
-                        {chart.rows.map((row, i) => (
-                          <div key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:15, lineHeight:'22px', letterSpacing:'-0.04em', color:'#795275', marginBottom:3, display:'flex', gap:5, alignItems:'baseline' }}>
-                            <span style={{ fontStyle:'normal', width:18, flexShrink:0, textAlign:'center' }}>{row.symbol}</span>
-                            <span style={{ flex:1 }}>{row.sign}{row.house ? <span style={{ opacity:0.55, fontSize:12 }}> M.{row.house}</span> : null}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </Accordion>
-
-                <div style={{ width:'min(353px, 88vw)', height:1, background:'rgba(121,82,117,0.25)', marginTop:16 }} />
-
-                <button onClick={restart} style={{ marginTop:32, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, letterSpacing:'-0.04em', color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>recommencer</button>
-              </div>
-            </div>
+            <ResultView result={result} onRestart={restart} />
           )}
           {!loading && result?.error && (
             <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', padding:20, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', color:'#795275', fontSize:20 }}>
@@ -783,6 +813,25 @@ export default function App() {
         <style>{`
           .dots::after { content:''; animation:dots 1.2s steps(4,end) infinite; }
           @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+          .cat-text::first-letter {
+            font-size: 3.1em;
+            line-height: 0.72;
+            float: left;
+            padding: 0.04em 0.09em 0 0;
+            font-style: italic;
+          }
+          /* Bille active : rotation lente (planète) + scintillement subtil */
+          @keyframes planetSpin { to { transform: rotate(360deg); } }
+          @keyframes ballTwinkle { 0%,100% { opacity: 0.25; transform: scale(0.9); } 50% { opacity: 0.85; transform: scale(1); } }
+          .pn-spin { animation: planetSpin 16s linear infinite; }
+          .pn-twinkle { animation: ballTwinkle 3.6s ease-in-out infinite; }
+          @media (prefers-reduced-motion: reduce) {
+            .pn-spin, .pn-twinkle { animation: none; }
+          }
+          /* Desktop : on remonte la barre d'onglets (100px sous elle) */
+          @media (min-width: 900px) {
+            .result-screen { padding-bottom: 100px !important; }
+          }
         `}</style>
       </div>
     </>

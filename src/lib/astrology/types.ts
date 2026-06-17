@@ -63,9 +63,14 @@ export interface ChartDisplay {
   rows: ChartRow[];
 }
 
+// Tabbed result content — one self-contained text per category.
+// harmony   : ce qui rapproche naturellement les deux personnes
+// tension   : les zones de friction potentielles
+// dynamic   : leur manière d'interagir ensemble
+// evolution : ce que la relation peut apporter ou enseigner
 export interface StructuredContent {
-  resume: string;
-  greenFlags: string[];
-  redFlags: string[];
-  dynamique: { paragraphe: string; points: string[] };
+  harmony: string;
+  tension: string;
+  dynamic: string;
+  evolution: string;
 }
