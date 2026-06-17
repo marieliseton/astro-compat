@@ -46,7 +46,7 @@ Chaque texte doit avoir une PERSONNALITÉ distincte pour qu'on devine la catégo
 Contraintes absolues :
 - Le score (${score}/100) doit transparaître dans le ton : harmony et evolution plus pleins quand il est haut ; tension plus présente quand il est bas.
 - ZÉRO vocabulaire astrologique : aucun mot comme planète, signe, maison, trigone, sextile, carré, opposition, aspect, ascendant, thème.
-- 2 à 3 phrases par texte. Court, aéré, premium. Pas de remplissage, pas de cliché, pas de généralité passe-partout.
+- 2 phrases courtes par texte, ~40 mots MAXIMUM. Aéré, premium. Pas de remplissage, pas de cliché, pas de généralité passe-partout.
 - Cite ${p1Name} et/ou ${p2Name} dans au moins deux des quatre textes.
 - Ne suppose aucune relation amoureuse, romantique ou sexuelle.
 - Français soigné, poétique mais précis.`;

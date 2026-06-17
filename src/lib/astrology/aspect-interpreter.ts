@@ -73,29 +73,28 @@ export function buildLocalContent(
 ): import('./types').StructuredContent {
   const { positive, negative } = interpretAspects(aspects);
   const pos = positive[0] ?? '';
-  const pos2 = positive[1] ?? '';
   const neg = negative[0] ?? '';
-  const neg2 = negative[1] ?? '';
 
+  // Textes courts (~40 mots max) — chaque catégorie garde sa voix propre.
   // ── Harmonie : ce qui rapproche ──────────────────────────────────────────
   const harmony = pos
-    ? `Entre ${p1Name} et ${p2Name}, quelque chose se reconnaît sans avoir besoin d'être expliqué. ${pos}${pos2 ? ' ' + pos2 : ''} C'est cette aisance, presque silencieuse, qui donne envie de rester.`
-    : `${p1Name} et ${p2Name} se rejoignent dans une justesse discrète : une façon d'être ensemble qui n'a pas besoin de forcer pour exister. Le lien se tisse dans les détails, doucement.`;
+    ? `Entre ${p1Name} et ${p2Name}, quelque chose se reconnaît sans avoir à s'expliquer. ${pos} Une aisance presque silencieuse, qui donne envie de rester.`
+    : `${p1Name} et ${p2Name} se rejoignent dans une justesse discrète : une façon d'être ensemble qui n'a pas besoin de forcer pour exister.`;
 
   // ── Tension : zones de friction ──────────────────────────────────────────
   const tension = neg
-    ? `Tout n'est pas lisse, et c'est honnête. ${neg}${neg2 ? ' ' + neg2 : ''} Rien d'irréparable — simplement des endroits où l'attention de chacun fera la différence.`
-    : `Les frictions entre ${p1Name} et ${p2Name} restent feutrées. Elles tiennent surtout aux non-dits : ce qui n'est pas nommé finit par peser. Une parole claire suffit souvent à les dissiper.`;
+    ? `Tout n'est pas lisse, et c'est honnête. ${neg} Rien d'irréparable — seulement des endroits où l'attention de chacun fera la différence.`
+    : `Les frictions entre ${p1Name} et ${p2Name} restent feutrées : ce qui n'est pas nommé finit par peser. Une parole claire suffit souvent à les dissiper.`;
 
   // ── Dynamique : leur manière d'interagir ─────────────────────────────────
   const dynamic = score >= 60
-    ? `Ensemble, ${p1Name} et ${p2Name} avancent par complémentarité plus que par ressemblance. L'un ouvre, l'autre approfondit ; le rythme se trouve à deux, et c'est là que la relation prend sa couleur.`
-    : `${p1Name} et ${p2Name} fonctionnent à des tempos différents, et la relation se joue dans cet ajustement. Quand chacun laisse de la place à l'autre, le mouvement devient une vraie conversation.`;
+    ? `Ensemble, ${p1Name} et ${p2Name} avancent par complémentarité plus que par ressemblance. Le rythme se trouve à deux, et c'est là que la relation prend sa couleur.`
+    : `${p1Name} et ${p2Name} fonctionnent à des tempos différents, et tout se joue dans l'ajustement. Quand chacun laisse de la place à l'autre, le mouvement devient une conversation.`;
 
   // ── Évolution : ce que la relation enseigne ──────────────────────────────
   const evolution = score >= 60
-    ? `Ce lien a de quoi faire grandir : il invite ${p1Name} et ${p2Name} à se révéler un peu plus à chaque étape. Ce qu'ils construisent ensemble dépasse vite ce qu'ils auraient imaginé seuls.`
-    : `La vraie promesse de cette relation est l'apprentissage. En se confrontant à une autre façon d'être, ${p1Name} et ${p2Name} apprennent autant sur l'autre que sur eux-mêmes — et c'est précieux.`;
+    ? `Ce lien a de quoi faire grandir : il invite ${p1Name} et ${p2Name} à se révéler un peu plus à chaque étape, au-delà de ce qu'ils auraient imaginé seuls.`
+    : `La promesse de cette relation, c'est l'apprentissage : face à une autre façon d'être, ${p1Name} et ${p2Name} en apprennent autant sur l'autre que sur eux-mêmes.`;
 
   return { harmony, tension, dynamic, evolution };
 }

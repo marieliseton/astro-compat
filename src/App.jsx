@@ -346,20 +346,22 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   )
 }
 
-// ── Résultat : expérience à onglets ─────────────────────────────────────────
-// Score → catégorie active → texte → navigation entre 4 planètes.
+// ── Résultat : expérience à onglets (specs Figma) ───────────────────────────
+// Score → texte de la catégorie active → navigation entre 4 catégories.
 // Pas de scroll, pas d'accordéon. Transition fondu entre catégories.
+// Fond #F3F1E7, score 200px, texte 34/42, pastille 385×98 r200, disques 40px.
 
 const PURPLE = '#795275'
+const BG     = '#F3F1E7'
 
 const CATEGORIES = [
-  { key:'harmony',   label:'harmonie',   symbol:'☉' },
-  { key:'tension',   label:'tension',    symbol:'♂' },
-  { key:'dynamic',   label:'dynamique',  symbol:'☿' },
-  { key:'evolution', label:'évolution',  symbol:'♄' },
+  { key:'harmony',   label:'harmonie'  },
+  { key:'tension',   label:'tension'   },
+  { key:'dynamic',   label:'dynamique' },
+  { key:'evolution', label:'évolution' },
 ]
 
-// Pastille « planète » : disque doré texturé + symbole, état actif/inactif.
+// Pastille « planète » : disque doré 40px + label 10px. État actif/inactif.
 function PlanetNav({ cat, active, onSelect }) {
   return (
     <button
@@ -367,33 +369,27 @@ function PlanetNav({ cat, active, onSelect }) {
       aria-pressed={active}
       style={{
         background:'none', border:'none', padding:0, cursor:'pointer',
-        display:'flex', flexDirection:'column', alignItems:'center', gap:8,
-        flex:1,
+        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
       }}
     >
       <span
         style={{
-          width:52, height:52, borderRadius:'50%',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          fontFamily:"'Apple Symbols','Segoe UI Symbol',serif", fontStyle:'normal',
-          fontSize:20, color: active ? '#6B4A23' : '#8a7a55',
+          width:40, height:40, borderRadius:'50%',
           background:'radial-gradient(circle at 34% 28%, #F6E8BE 0%, #E7CB82 46%, #C9A24B 100%)',
           boxShadow: active
-            ? '0 0 0 4px rgba(121,82,117,0.14), 0 8px 20px rgba(201,162,75,0.45), inset 0 -3px 6px rgba(150,110,40,0.35)'
-            : 'inset 0 -3px 6px rgba(150,110,40,0.3)',
-          opacity: active ? 1 : 0.42,
-          transform: active ? 'scale(1)' : 'scale(0.8)',
+            ? '0 0 0 3px rgba(121,82,117,0.16), 0 6px 16px rgba(201,162,75,0.5)'
+            : 'inset 0 -2px 5px rgba(150,110,40,0.3)',
+          opacity: active ? 1 : 0.4,
+          transform: active ? 'scale(1)' : 'scale(0.82)',
           transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
         }}
-      >
-        {cat.symbol}
-      </span>
+      />
       <span
         style={{
-          fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:13,
-          letterSpacing:'-0.03em', color:PURPLE,
-          opacity: active ? 1 : 0.45,
-          fontWeight: active ? 600 : 400,
+          fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
+          fontSize:10, lineHeight:'12px', letterSpacing:'-0.04em', textAlign:'center',
+          color:'#575757', whiteSpace:'nowrap',
+          opacity: active ? 1 : 0.55, fontWeight: active ? 700 : 400,
           transition:'opacity 0.4s ease',
         }}
       >
@@ -404,13 +400,11 @@ function PlanetNav({ cat, active, onSelect }) {
 }
 
 function ResultView({ result, onRestart }) {
-  const [active, setActive] = useState('harmony')
-  const [shown, setShown]   = useState('harmony')
+  const [active, setActive]   = useState('harmony')
+  const [shown, setShown]     = useState('harmony')
   const [visible, setVisible] = useState(true)
 
   // Fondu : sortie complète → changement de contenu → entrée.
-  // Le délai (320ms) dépasse la transition d'opacité (300ms) pour que le
-  // contenu ne change qu'une fois totalement invisible.
   useEffect(() => {
     if (active === shown) return
     setVisible(false)
@@ -418,43 +412,38 @@ function ResultView({ result, onRestart }) {
     return () => clearTimeout(t)
   }, [active, shown])
 
-  const cat  = CATEGORIES.find(c => c.key === shown) || CATEGORIES[0]
   const text = result[shown] || ''
 
   return (
-    <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', padding:'calc(env(safe-area-inset-top) + 48px) 24px calc(env(safe-area-inset-bottom) + 22px)', overflow:'hidden' }}>
+    <div style={{ position:'absolute', inset:0, background:BG, display:'flex', flexDirection:'column', alignItems:'center', overflow:'hidden', padding:'calc(env(safe-area-inset-top) + 6vh) 20px calc(env(safe-area-inset-bottom) + 26px)' }}>
 
       {/* ── Score ── */}
       <div style={{ flexShrink:0, textAlign:'center' }}>
-        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:21, letterSpacing:'-0.04em', color:PURPLE, opacity:0.85 }}>
+        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
           votre compatibilité
         </div>
-        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(96px, 21vh, 140px)', lineHeight:0.95, letterSpacing:'-0.04em', color:PURPLE, marginTop:6 }}>
+        <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(200px, 23vh)', lineHeight:0.92, letterSpacing:'-0.04em', color:PURPLE, marginTop:'1.5vh' }}>
           {result.score}
         </div>
       </div>
 
-      {/* ── Catégorie active + texte (zone fondue) ── */}
-      <div style={{ flex:'1 1 auto', minHeight:0, width:'min(360px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
-        <div style={{ opacity:visible?1:0, transition:'opacity 0.3s ease' }}>
-          <div style={{ textAlign:'center', marginBottom:18, display:'flex', alignItems:'center', justifyContent:'center', gap:9 }}>
-            <span style={{ fontFamily:"'Apple Symbols','Segoe UI Symbol',serif", fontSize:18, color:PURPLE, opacity:0.7 }}>{cat.symbol}</span>
-            <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, letterSpacing:'-0.02em', color:PURPLE, textTransform:'capitalize' }}>{cat.label}</span>
-          </div>
-          <p className="cat-text" style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(17px, 2.3vh, 20px)', lineHeight:1.55, letterSpacing:'-0.03em', color:PURPLE, textAlign:'left', margin:0 }}>
-            {text}
-          </p>
+      {/* ── Texte de la catégorie active (zone fondue) ── */}
+      <div style={{ flex:'1 1 auto', minHeight:0, width:'min(385px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
+        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(19px, 2.4vw + 6px, 34px)', lineHeight:1.235, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+          {text}
+        </p>
+      </div>
+
+      {/* ── Navigation : pastille translucide + 4 disques ── */}
+      <div style={{ flexShrink:0, width:'min(385px, 92vw)', height:98, borderRadius:200, background:'rgba(255,254,247,0.18)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
+          {CATEGORIES.map(c => (
+            <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
+          ))}
         </div>
       </div>
 
-      {/* ── Navigation entre catégories ── */}
-      <div style={{ flexShrink:0, width:'min(360px, 92vw)', display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:6, padding:'16px 14px 14px', background:'rgba(255,255,255,0.45)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', borderRadius:26, boxShadow:'0 8px 30px rgba(121,82,117,0.12)' }}>
-        {CATEGORIES.map(c => (
-          <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
-        ))}
-      </div>
-
-      <button onClick={onRestart} style={{ flexShrink:0, marginTop:16, fontFamily:"'IM Fell DW Pica',serif", fontSize:15, letterSpacing:'-0.04em', color:PURPLE, opacity:0.7, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:4 }}>
+      <button onClick={onRestart} style={{ flexShrink:0, marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
         recommencer
       </button>
     </div>
@@ -651,8 +640,8 @@ function StarGrid() {
 
 // ── Constantes écran ──────────────────────────────────────────────────────────
 
-const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#FFFEEE' }
-const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#FFFEEE' }
+const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#F3F1E7' }
+const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#F3F1E7' }
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -765,7 +754,7 @@ export default function App() {
         />
 
         {/* ── SCREEN 4 ── */}
-        <div style={{ position:'absolute', inset:0, background:'#FFFEEE', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
+        <div style={{ position:'absolute', inset:0, background:'#F3F1E7', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
           {loading && <TourbillonLoader />}
           {!loading && result && !result.error && (
             <ResultView result={result} onRestart={restart} />
