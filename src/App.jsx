@@ -109,10 +109,13 @@ const INPUT_STYLE = {
   border: 'none',
   outline: 'none',
   width: '100%',
+  position: 'relative',
+  zIndex: 1,
 }
 const LABEL_STYLE = {
   position: 'absolute',
   left: 30,
+  zIndex: 1,
   fontFamily: "'IM Fell DW Pica',serif",
   fontSize: 20,
   letterSpacing: '-0.04em',
@@ -120,27 +123,47 @@ const LABEL_STYLE = {
   pointerEvents: 'none',
   whiteSpace: 'nowrap',
 }
-const FIELD_WRAP = (top) => ({
-  position: 'absolute',
-  left: 'calc(50% - 161px)',
-  top,
+// Champ en flux (centré par le parent flex) avec son halo flou propre.
+const FIELD_BOX = {
+  position: 'relative',
   width: 322,
+  maxWidth: '100%',
   height: 55,
   display: 'flex',
   alignItems: 'center',
   paddingLeft: 30,
   cursor: 'text',
-})
+}
+const BLUR_BG = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 0,
+  background: '#FFF',
+  filter: 'blur(12.65px)',
+  borderRadius: 100,
+  pointerEvents: 'none',
+}
+
+// Bouton bleu premium — même CSS que le CTA « Commencer ».
+function BlueButton({ label, onClick, style }) {
+  return (
+    <button onClick={onClick} style={{ position:'relative', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0, flexShrink:0, ...style }}>
+      <div style={{ position:'absolute', left:'calc(50% - 65.5px)', top:2, width:131, height:25, background:'linear-gradient(181.02deg,#E1F0FF 12.94%,rgba(225,240,255,0.4) 56.69%,rgba(17,110,233,0.5) 92.77%)', borderRadius:100, pointerEvents:'none' }} />
+      <span style={{ position:'relative', fontFamily:"'IM Fell DW Pica',serif", fontSize:24, letterSpacing:'-0.04em', color:'#fff', textShadow:'0px 1px 1.6px #0164E7', lineHeight:'52px' }}>{label}</span>
+    </button>
+  )
+}
 
 // ── Champ texte ───────────────────────────────────────────────────────────────
 // Uncontrolled input: React ne touche jamais value sur re-render → pas de blink iOS
 
-function FieldText({ top, label, onEnter, inputRef }) {
+function FieldText({ label, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
   return (
-    <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
+    <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
+      <div style={BLUR_BG} />
       {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
       <input ref={ref} type="text" enterKeyHint="next" style={INPUT_STYLE}
         onFocus={() => setHasVal(true)}
@@ -155,7 +178,7 @@ function FieldText({ top, label, onEnter, inputRef }) {
 // ── Champ ville ───────────────────────────────────────────────────────────────
 // Uncontrolled input: la valeur vit dans le DOM, pick() écrit ref.current.value directement
 
-function FieldVille({ top, label, onConfirm, onEnter, inputRef }) {
+function FieldVille({ label, onConfirm, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
@@ -189,8 +212,9 @@ function FieldVille({ top, label, onConfirm, onEnter, inputRef }) {
   }
 
   return (
-    <div style={{ position:'absolute', left:'calc(50% - 161px)', top, width:322, zIndex:10 }}>
-      <div style={{ height:55, display:'flex', alignItems:'center', paddingLeft:30, cursor:'text', position:'relative' }} onClick={() => ref.current?.focus()}>
+    <div style={{ position:'relative', width:322, maxWidth:'100%', zIndex:10 }}>
+      <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
+        <div style={BLUR_BG} />
         {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
         <input ref={ref} type="text" autoComplete="off" enterKeyHint="next" style={INPUT_STYLE}
           onFocus={() => setHasVal(true)}
@@ -228,13 +252,14 @@ function FieldVille({ top, label, onConfirm, onEnter, inputRef }) {
 // ── Champ date ────────────────────────────────────────────────────────────────
 // Uncontrolled: defaultValue + e.target.value manuel → pas de setSelectionRange ni re-render DOM
 
-function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
+function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!dateRaw)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
-    <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
+    <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
+      <div style={BLUR_BG} />
       {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={dateFmt(dateRaw)} enterKeyHint="next" style={INPUT_STYLE}
         onFocus={() => setHasVal(true)}
@@ -265,13 +290,14 @@ function FieldDate({ top, label, dateRaw, onDateChange, onEnter, inputRef }) {
 
 // ── Champ heure ───────────────────────────────────────────────────────────────
 
-function FieldTime({ top, label, timeRaw, onTimeChange, onEnter, inputRef }) {
+function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!timeRaw)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
-    <div style={FIELD_WRAP(top)} onClick={() => ref.current?.focus()}>
+    <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
+      <div style={BLUR_BG} />
       {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={timeFmt(timeRaw)} enterKeyHint="done" style={INPUT_STYLE}
         onFocus={() => setHasVal(true)}
@@ -329,19 +355,18 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   return (
     <div style={{ width:'100%', height:'100%', position:'absolute', top:0, left:0, overflow:'hidden', transition:'opacity 0.4s ease', opacity:visible?1:0, pointerEvents:visible?'all':'none' }}>
       <div style={{ position:'absolute', inset:0, ...bgStyle }} />
-      {deco && <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:62, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
-      {[126,194,262,330].map(t => (
-        <div key={t} style={{ position:'absolute', width:322, height:55, left:'calc(50% - 161px)', top:t, background:'#FFF', filter:'blur(12.65px)', borderRadius:100 }} />
-      ))}
-      <FieldText  top={126} label={labels[0]} onEnter={() => refVille.current?.focus()} inputRef={refPrenom} />
-      <FieldVille top={194} label={labels[1]} onConfirm={v => setVilleOk(!!v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
-      <FieldDate  top={262} label={labels[2]} dateRaw={dateRaw} onDateChange={setDateRaw} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
-      <FieldTime  top={330} label={labels[3]} timeRaw={timeRaw} onTimeChange={setTimeRaw} onEnter={handleSubmit} inputRef={refTime} />
-      {error && <div style={{ position:'absolute', left:'calc(50% - 161px)', width:322, top:405, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>}
-      <button onClick={handleSubmit} style={{ position:'absolute', left:'calc(50% - 74px)', top:'75%', width:148, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-        valider
-        <span style={{ display:'block', width:50, height:1, background:ctaColor||'#000' }} />
-      </button>
+      {/* Formulaire centré horizontalement et verticalement */}
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 20px' }}>
+        {deco && <div style={{ marginBottom:24, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:13 }}>
+          <FieldText  label={labels[0]} onEnter={() => refVille.current?.focus()} inputRef={refPrenom} />
+          <FieldVille label={labels[1]} onConfirm={v => setVilleOk(!!v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
+          <FieldDate  label={labels[2]} dateRaw={dateRaw} onDateChange={setDateRaw} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
+          <FieldTime  label={labels[3]} timeRaw={timeRaw} onTimeChange={setTimeRaw} onEnter={handleSubmit} inputRef={refTime} />
+        </div>
+        {error && <div style={{ width:322, maxWidth:'100%', marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>}
+        <BlueButton label="valider" onClick={handleSubmit} style={{ marginTop:30 }} />
+      </div>
     </div>
   )
 }
@@ -354,19 +379,20 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
 const PURPLE = '#795275'
 const BG     = '#F3F1E7'
 
-// Chaque catégorie a sa bille métallique premium (couleur distincte).
+// Billes métalliques premium, vives & chromées — une couleur par catégorie.
 const CATEGORIES = [
-  { key:'harmony',   label:'harmonie',  // or champagne
-    disc:'radial-gradient(circle at 32% 26%, #FBF0CE 0%, #E7CB82 44%, #B8923C 100%)' },
-  { key:'tension',   label:'tension',   // cuivre / rosé
-    disc:'radial-gradient(circle at 32% 26%, #F8DCD0 0%, #D69A86 44%, #A6604E 100%)' },
-  { key:'dynamic',   label:'dynamique', // chrome / argent
-    disc:'radial-gradient(circle at 32% 26%, #FCFCFE 0%, #D6DBE1 44%, #969EAB 100%)' },
-  { key:'evolution', label:'évolution', // graphite / platine
-    disc:'radial-gradient(circle at 32% 26%, #ECEEF1 0%, #B4BAC5 44%, #79828F 100%)' },
+  { key:'harmony',   label:'harmonie',  // or vif chromé
+    disc:'radial-gradient(circle at 34% 26%, #FFF6D8 0%, #FFE07A 30%, #E8A41E 62%, #7A4E00 100%)' },
+  { key:'tension',   label:'tension',   // cuivre / corail vif
+    disc:'radial-gradient(circle at 34% 26%, #FFE6D2 0%, #FF9E6B 30%, #E5532A 62%, #7A1E08 100%)' },
+  { key:'dynamic',   label:'dynamique', // chrome poli
+    disc:'radial-gradient(circle at 34% 26%, #FFFFFF 0%, #E8EDF2 26%, #AAB4C0 60%, #5A6470 100%)' },
+  { key:'evolution', label:'évolution', // améthyste chromée
+    disc:'radial-gradient(circle at 34% 26%, #F5ECFF 0%, #C9A9FF 28%, #8A5BE0 60%, #3A1E78 100%)' },
 ]
 
-// Bille métallique 40px + label 10px. Couleur propre à la catégorie, sheen métal.
+// Bille métallique chromée 40px + label 12px. Active : brille fort, tourne
+// sur elle-même (planète) et possède une orbite avec un satellite.
 function PlanetNav({ cat, active, onSelect }) {
   return (
     <button
@@ -374,40 +400,60 @@ function PlanetNav({ cat, active, onSelect }) {
       aria-pressed={active}
       style={{
         background:'none', border:'none', padding:0, cursor:'pointer',
-        display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+        display:'flex', flexDirection:'column', alignItems:'center', gap:7,
       }}
     >
       <span
         style={{
-          position:'relative', overflow:'hidden',
-          width:40, height:40, borderRadius:'50%', background:cat.disc,
-          boxShadow: active
-            ? 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -3px 5px rgba(0,0,0,0.28), 0 6px 16px rgba(0,0,0,0.22)'
-            : 'inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.18)',
+          position:'relative', width:40, height:40,
+          display:'flex', alignItems:'center', justifyContent:'center',
           opacity: active ? 1 : 0.5,
-          transform: active ? 'scale(1.06)' : 'scale(0.82)',
-          transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease',
+          transform: active ? 'scale(1.08)' : 'scale(0.82)',
+          transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1)',
         }}
       >
         {active && (
-          <>
-            {/* surface qui tourne sur elle-même comme une planète */}
-            <span className="pn-spin" style={{
-              position:'absolute', inset:'-25%', borderRadius:'50%', pointerEvents:'none',
-              background:'conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(0,0,0,0.10) 70deg, rgba(255,255,255,0.13) 150deg, rgba(0,0,0,0.08) 230deg, rgba(255,255,255,0) 320deg)',
-            }} />
-            {/* scintillement : éclat spéculaire qui pulse doucement */}
-            <span className="pn-twinkle" style={{
-              position:'absolute', top:'17%', left:'23%', width:9, height:6, borderRadius:'50%', pointerEvents:'none',
-              background:'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)', filter:'blur(0.5px)',
-            }} />
-          </>
+          /* orbite inclinée + satellite (hors du clip de la boule) */
+          <span className="pn-orbit-tilt" style={{ position:'absolute', top:'50%', left:'50%', width:62, height:62, marginTop:-31, marginLeft:-31, transform:'rotateX(70deg)', pointerEvents:'none' }}>
+            <span style={{ position:'absolute', inset:0, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.5)' }} />
+            <span className="pn-orbit" style={{ position:'absolute', inset:0 }}>
+              <span style={{ position:'absolute', top:-2, left:'50%', width:5, height:5, marginLeft:-2.5, borderRadius:'50%', background:'#fff', boxShadow:'0 0 5px 1px rgba(255,255,255,0.9)' }} />
+            </span>
+          </span>
         )}
+        {/* la boule (clip interne de la surface) */}
+        <span style={{
+          position:'relative', overflow:'hidden', width:40, height:40, borderRadius:'50%', background:cat.disc,
+          boxShadow: active
+            ? 'inset 0 2px 4px rgba(255,255,255,0.85), inset 0 -4px 7px rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.28)'
+            : 'inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.22)',
+          transition:'box-shadow 0.4s ease',
+        }}>
+          {active && (
+            <>
+              {/* surface contrastée qui tourne (rotation bien visible) */}
+              <span className="pn-spin" style={{
+                position:'absolute', inset:'-30%', borderRadius:'50%', pointerEvents:'none',
+                background:'conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(0,0,0,0.18) 60deg, rgba(255,255,255,0.30) 140deg, rgba(0,0,0,0.16) 220deg, rgba(255,255,255,0.24) 300deg, rgba(255,255,255,0) 360deg)',
+              }} />
+              {/* gros reflet glossy — la boule brille fort */}
+              <span style={{
+                position:'absolute', top:'9%', left:'15%', width:'50%', height:'36%', borderRadius:'50%', pointerEvents:'none',
+                background:'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0) 75%)', filter:'blur(0.4px)',
+              }} />
+              {/* éclat qui scintille */}
+              <span className="pn-twinkle" style={{
+                position:'absolute', top:'15%', left:'21%', width:8, height:6, borderRadius:'50%', pointerEvents:'none',
+                background:'radial-gradient(circle, #fff 0%, rgba(255,255,255,0) 70%)',
+              }} />
+            </>
+          )}
+        </span>
       </span>
       <span
         style={{
           fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
-          fontSize:10, lineHeight:'12px', letterSpacing:'-0.04em', textAlign:'center',
+          fontSize:12, lineHeight:'14px', letterSpacing:'-0.04em', textAlign:'center',
           color:'#575757', whiteSpace:'nowrap',
           opacity: active ? 1 : 0.5, fontWeight: active ? 700 : 400,
           transition:'opacity 0.4s ease',
@@ -435,51 +481,52 @@ function ResultView({ result, onRestart }) {
   const text = result[shown] || ''
 
   return (
-    <div className="result-screen" style={{ position:'absolute', inset:0, background:BG, display:'flex', flexDirection:'column', alignItems:'center', overflow:'hidden', padding:'calc(env(safe-area-inset-top) + 6vh) 20px calc(env(safe-area-inset-bottom) + 26px)' }}>
+    <div className="result-screen" style={{ position:'absolute', inset:0, background:BG, overflow:'hidden' }}>
 
-      {/* ── Score ── */}
-      <div style={{ flexShrink:0, textAlign:'center' }}>
+      {/* ── Haut : eyebrow + score (avec %) ── */}
+      <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh)', left:0, right:0, display:'flex', flexDirection:'column', alignItems:'center' }}>
         <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
           votre compatibilité
         </div>
-        <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.5vh' }}>
-          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(200px, 23vh)', lineHeight:0.92, letterSpacing:'-0.04em', color:PURPLE }}>
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.2vh', fontSize:'min(200px, 24vh)', lineHeight:0.9, color:PURPLE }}>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }}>
             {result.score}
           </span>
-          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'min(58px, 6.7vh)', lineHeight:1, letterSpacing:'-0.04em', color:PURPLE, marginTop:'min(26px, 3vh)', marginLeft:4 }}>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'0.2em', lineHeight:1, letterSpacing:'-0.04em', marginTop:'0.12em', marginLeft:'0.05em' }}>
             %
           </span>
         </div>
       </div>
 
-      {/* ── Texte de la catégorie active (zone fondue) ── */}
-      <div style={{ flex:'1 1 auto', minHeight:0, width:'min(385px, 90vw)', display:'flex', flexDirection:'column', justifyContent:'center', overflow:'hidden' }}>
-        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(16px, 1.7vw + 6px, 26px)', lineHeight:1.32, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+      {/* ── Texte de la catégorie active : ancré sous le score, file derrière la pastille ── */}
+      <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:'50%', transform:'translateX(-50%)', width:'min(353px, 90vw)', overflow:'hidden' }}>
+        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'clamp(24px, 8.6vw, 34px)', lineHeight:1.235, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
           {text}
         </p>
       </div>
 
-      {/* ── Navigation : pastille liquid glass (iOS) + 4 billes ── */}
-      <div style={{
-        flexShrink:0, position:'relative', width:'min(385px, 92vw)', height:98, borderRadius:200,
-        background:'rgba(255,255,255,0.14)',
-        backdropFilter:'blur(22px) saturate(180%)', WebkitBackdropFilter:'blur(22px) saturate(180%)',
-        border:'1px solid rgba(255,255,255,0.45)',
-        boxShadow:'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -10px 18px rgba(255,255,255,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.2), 0 10px 30px rgba(121,82,117,0.14)',
-        display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
-      }}>
-        {/* reflet supérieur (sheen liquid glass) */}
-        <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
-        <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
-          {CATEGORIES.map(c => (
-            <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
-          ))}
+      {/* ── Bas : pastille liquid glass flottante + recommencer (40px sous la barre) ── */}
+      <div className="result-bottom" style={{ position:'absolute', left:0, right:0, bottom:'calc(env(safe-area-inset-bottom) + 24px)', display:'flex', flexDirection:'column', alignItems:'center', gap:40 }}>
+        <div style={{
+          position:'relative', width:'min(385px, 92vw)', height:98, borderRadius:200,
+          background:'rgba(255,255,255,0.14)',
+          backdropFilter:'blur(22px) saturate(180%)', WebkitBackdropFilter:'blur(22px) saturate(180%)',
+          border:'1px solid rgba(255,255,255,0.45)',
+          boxShadow:'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -10px 18px rgba(255,255,255,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.2), 0 10px 30px rgba(121,82,117,0.14)',
+          display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
+        }}>
+          <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
+          <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
+            {CATEGORIES.map(c => (
+              <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
+            ))}
+          </div>
         </div>
-      </div>
 
-      <button onClick={onRestart} style={{ flexShrink:0, marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
-        recommencer
-      </button>
+        <button onClick={onRestart} style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
+          recommencer
+        </button>
+      </div>
     </div>
   )
 }
@@ -762,13 +809,10 @@ export default function App() {
         <div style={{ position:'absolute', inset:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s', ...visible(1) }}>
           <StarGrid />
           <div style={{ position:'absolute', width:272, height:128, left:'calc(50% - 136px)', top:'calc(50% - 64px)', background:'#fff', filter:'blur(12.65px)', borderRadius:100, pointerEvents:'none' }} />
-          <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#0B0B0B', pointerEvents:'none' }}>
+          <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#1E00FF', pointerEvents:'none' }}>
             Découvrez votre compatibilité astrale
           </div>
-          <button onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0 }}>
-            <div style={{ position:'absolute', left:'calc(50% - 65.5px)', top:2, width:131, height:25, background:'linear-gradient(181.02deg,#E1F0FF 12.94%,rgba(225,240,255,0.4) 56.69%,rgba(17,110,233,0.5) 92.77%)', borderRadius:100, pointerEvents:'none' }} />
-            <span style={{ position:'relative', fontFamily:"'IM Fell DW Pica',serif", fontSize:24, letterSpacing:'-0.04em', color:'#fff', textShadow:'0px 1px 1.6px #0164E7', lineHeight:'52px' }}>Commencer</span>
-          </button>
+          <BlueButton label="Commencer" onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)' }} />
         </div>
 
         {/* ── SCREEN 2 ── */}
@@ -820,17 +864,19 @@ export default function App() {
             padding: 0.04em 0.09em 0 0;
             font-style: italic;
           }
-          /* Bille active : rotation lente (planète) + scintillement subtil */
+          /* Bille active : rotation visible (planète), orbite + scintillement */
           @keyframes planetSpin { to { transform: rotate(360deg); } }
-          @keyframes ballTwinkle { 0%,100% { opacity: 0.25; transform: scale(0.9); } 50% { opacity: 0.85; transform: scale(1); } }
-          .pn-spin { animation: planetSpin 16s linear infinite; }
-          .pn-twinkle { animation: ballTwinkle 3.6s ease-in-out infinite; }
+          @keyframes orbitSpin  { to { transform: rotate(360deg); } }
+          @keyframes ballTwinkle { 0%,100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 0.95; transform: scale(1.05); } }
+          .pn-spin { animation: planetSpin 9s linear infinite; }
+          .pn-orbit { animation: orbitSpin 7s linear infinite; }
+          .pn-twinkle { animation: ballTwinkle 2.8s ease-in-out infinite; }
           @media (prefers-reduced-motion: reduce) {
-            .pn-spin, .pn-twinkle { animation: none; }
+            .pn-spin, .pn-orbit, .pn-twinkle { animation: none; }
           }
-          /* Desktop : on remonte la barre d'onglets (100px sous elle) */
+          /* Desktop : on remonte la barre d'onglets (~100px sous elle) */
           @media (min-width: 900px) {
-            .result-screen { padding-bottom: 100px !important; }
+            .result-bottom { bottom: 44px !important; }
           }
         `}</style>
       </div>
