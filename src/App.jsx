@@ -381,20 +381,32 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
 const PURPLE = '#795275'
 const BG     = '#F3F1E7'
 
-// Billes métalliques premium, vives & chromées — une couleur par catégorie.
+// Couches de reflet partagées : version couleurs vives vs chrome.
+// Les dégradés de glints sont PÉRIODIQUES (les deux moitiés sont identiques,
+// transparentes aux bords) → le translateX(-50%) boucle sans aucune couture.
+const GLINTS_COLOR  = 'linear-gradient(90deg, transparent 0%, transparent 5%, rgba(255,255,255,0.38) 9%, rgba(255,255,255,0.10) 12%, transparent 16%, rgba(0,0,0,0.12) 25%, rgba(255,255,255,0.30) 33%, rgba(255,255,255,0.08) 36%, transparent 40%, transparent 50%, transparent 55%, rgba(255,255,255,0.38) 59%, rgba(255,255,255,0.10) 62%, transparent 66%, rgba(0,0,0,0.12) 75%, rgba(255,255,255,0.30) 83%, rgba(255,255,255,0.08) 86%, transparent 90%, transparent 100%)'
+const GLINTS_CHROME = 'linear-gradient(90deg, transparent 0%, transparent 5%, rgba(255,255,255,0.70) 9%, rgba(255,255,255,0.18) 12%, transparent 16%, rgba(0,0,0,0.18) 25%, rgba(255,255,255,0.52) 33%, rgba(255,255,255,0.12) 36%, transparent 40%, transparent 50%, transparent 55%, rgba(255,255,255,0.70) 59%, rgba(255,255,255,0.18) 62%, transparent 66%, rgba(0,0,0,0.18) 75%, rgba(255,255,255,0.52) 83%, rgba(255,255,255,0.12) 86%, transparent 90%, transparent 100%)'
+const SPEC_COLOR    = 'radial-gradient(circle at 32% 24%, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.5) 12%, rgba(255,255,255,0) 30%)'
+const SPEC_CHROME   = 'radial-gradient(circle at 26% 17%, rgba(255,255,255,1) 0%, rgba(255,255,255,0.88) 7%, rgba(255,255,255,0) 26%)'
+
+// Billes glossy — couleurs vives, une par catégorie. évolution = chrome.
 const CATEGORIES = [
-  { key:'harmony',   label:'harmonie',  // or vif chromé
-    disc:'radial-gradient(circle at 34% 26%, #FFF6D8 0%, #FFE07A 30%, #E8A41E 62%, #7A4E00 100%)' },
-  { key:'tension',   label:'tension',   // cuivre / corail vif
-    disc:'radial-gradient(circle at 34% 26%, #FFE6D2 0%, #FF9E6B 30%, #E5532A 62%, #7A1E08 100%)' },
-  { key:'dynamic',   label:'dynamique', // chrome poli
-    disc:'radial-gradient(circle at 34% 26%, #FFFFFF 0%, #E8EDF2 26%, #AAB4C0 60%, #5A6470 100%)' },
-  { key:'evolution', label:'évolution', // améthyste chromée
-    disc:'radial-gradient(circle at 34% 26%, #F5ECFF 0%, #C9A9FF 28%, #8A5BE0 60%, #3A1E78 100%)' },
+  { key:'harmony',   label:'harmonie',  // vert lime
+    disc:'radial-gradient(circle at 68% 73%, rgba(150,255,80,0.35) 0%, rgba(150,255,80,0) 40%), radial-gradient(circle at 44% 44%, #88FF33 0%, #33BB00 38%, #1A8800 65%, #0A4400 100%)',
+    glints:GLINTS_COLOR, spec:SPEC_COLOR },
+  { key:'tension',   label:'tension',   // rose fuchsia
+    disc:'radial-gradient(circle at 68% 73%, rgba(255,140,200,0.35) 0%, rgba(255,140,200,0) 40%), radial-gradient(circle at 44% 44%, #FF66CC 0%, #EE0099 38%, #AA0055 65%, #660033 100%)',
+    glints:GLINTS_COLOR, spec:SPEC_COLOR },
+  { key:'dynamic',   label:'dynamique', // bleu électrique
+    disc:'radial-gradient(circle at 68% 73%, rgba(140,195,255,0.35) 0%, rgba(140,195,255,0) 40%), radial-gradient(circle at 44% 44%, #66AAFF 0%, #1155EE 38%, #0033BB 65%, #001166 100%)',
+    glints:GLINTS_COLOR, spec:SPEC_COLOR },
+  { key:'evolution', label:'évolution', // chrome bleuté
+    disc:'radial-gradient(circle at 73% 77%, rgba(180,225,255,0.50) 0%, rgba(180,225,255,0) 28%), radial-gradient(circle at 52% 54%, rgba(100,165,220,0.28) 0%, rgba(100,165,220,0) 42%), radial-gradient(circle at 44% 40%, #D8EEF8 0%, #78A0B8 25%, #304858 55%, #0E1820 85%, #040810 100%)',
+    glints:GLINTS_CHROME, spec:SPEC_CHROME },
 ]
 
-// Bille métallique chromée 40px + label 12px. Active : brille fort, tourne
-// sur elle-même (planète) et possède une orbite avec un satellite.
+// Bille glossy 40px + label 12px. Active : reflet principal fixe + reflets
+// secondaires qui balayent la surface (= rotation) + scintillement.
 function PlanetNav({ cat, active, onSelect }) {
   return (
     <button
@@ -424,19 +436,23 @@ function PlanetNav({ cat, active, onSelect }) {
         }}>
           {active && (
             <>
-              {/* surface contrastée qui tourne (rotation bien visible) */}
-              <span className="pn-spin" style={{
-                position:'absolute', inset:'-30%', borderRadius:'50%', pointerEvents:'none',
-                background:'conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(0,0,0,0.18) 60deg, rgba(255,255,255,0.30) 140deg, rgba(0,0,0,0.16) 220deg, rgba(255,255,255,0.24) 300deg, rgba(255,255,255,0) 360deg)',
-              }} />
-              {/* gros reflet glossy — la boule brille fort */}
+              {/* reflets secondaires qui balayent la surface → rotation
+                  (masque fixe + dégradé périodique qui défile sous le masque) */}
+              <span className="pn-glints">
+                <span className="pn-glints-roll" style={{ background:cat.glints }} />
+              </span>
+              {/* assombrissement du limbe → volume sphérique */}
               <span style={{
-                position:'absolute', top:'9%', left:'15%', width:'50%', height:'36%', borderRadius:'50%', pointerEvents:'none',
-                background:'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0) 75%)', filter:'blur(0.4px)',
+                position:'absolute', inset:0, pointerEvents:'none',
+                background:'radial-gradient(circle at 50% 50%, transparent 46%, rgba(0,0,0,0.34) 100%)',
+              }} />
+              {/* reflet principal FIXE (source de lumière fixe) */}
+              <span style={{
+                position:'absolute', inset:0, pointerEvents:'none', background:cat.spec,
               }} />
               {/* éclat qui scintille */}
               <span className="pn-twinkle" style={{
-                position:'absolute', top:'15%', left:'21%', width:8, height:6, borderRadius:'50%', pointerEvents:'none',
+                position:'absolute', top:'15%', left:'21%', width:'15%', height:'11%', borderRadius:'50%', pointerEvents:'none',
                 background:'radial-gradient(circle, #fff 0%, rgba(255,255,255,0) 70%)',
               }} />
             </>
@@ -497,7 +513,16 @@ function ResultView({ result, onRestart }) {
         </div>
       </div>
 
-      {/* ── Zone scrollable : texte + recommencer ── */}
+      {/* ── Retour accueil (haut gauche) — recommence le parcours ── */}
+      <button onClick={onRestart} aria-label="recommencer" className="result-home"
+        style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 12px)', left:10, zIndex:5,
+          background:'none', border:'none', cursor:'pointer', padding:'10px 12px',
+          fontFamily:"'IM Fell DW Pica',serif", fontSize:26, lineHeight:1, letterSpacing:'-0.02em',
+          color:PURPLE, opacity:0.85, WebkitTapHighlightColor:'transparent' }}>
+        ⋆˚꩜｡
+      </button>
+
+      {/* ── Zone scrollable : texte de la catégorie active ── */}
       <div
         ref={scrollRef}
         style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:0, right:0, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain' }}
@@ -506,9 +531,6 @@ function ResultView({ result, onRestart }) {
           <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'normal', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
             {text}
           </p>
-          <button onClick={onRestart} style={{ display:'block', marginTop:40, fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
-            recommencer
-          </button>
         </div>
       </div>
 
@@ -872,13 +894,27 @@ export default function App() {
           .pn-label { font-size: 12px; }
           /* Marge bouton valider */
           .valider-wrap { margin-top: 30px; }
-          /* Bille active : rotation planète + scintillement */
-          @keyframes planetSpin { to { transform: rotate(360deg); } }
+          /* Bouton retour accueil */
+          .result-home { transition: opacity 0.2s ease, transform 0.1s ease; }
+          .result-home:hover { opacity: 1; }
+          .result-home:active { transform: scale(0.92); }
+          /* Bille active : reflets qui balayent (rotation) + scintillement.
+             Masque radial FIXE (centré sur la bille) + dégradé périodique qui
+             défile en dessous → boucle parfaitement continue, sans couture. */
+          .pn-glints {
+            position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 50%;
+            -webkit-mask: radial-gradient(circle at 50% 50%, #000 0%, #000 34%, transparent 74%) center / 100% 100% no-repeat;
+                    mask: radial-gradient(circle at 50% 50%, #000 0%, #000 34%, transparent 74%) center / 100% 100% no-repeat;
+          }
+          .pn-glints-roll {
+            position: absolute; top: 0; left: 0; width: 200%; height: 100%;
+            animation: ballRoll 8s linear infinite;
+          }
+          @keyframes ballRoll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
           @keyframes ballTwinkle { 0%,100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 0.95; transform: scale(1.05); } }
-          .pn-spin { animation: planetSpin 9s linear infinite; }
           .pn-twinkle { animation: ballTwinkle 2.8s ease-in-out infinite; }
           @media (prefers-reduced-motion: reduce) {
-            .pn-spin, .pn-twinkle { animation: none; }
+            .pn-glints-roll, .pn-twinkle { animation: none; }
           }
           /* Desktop */
           @media (min-width: 900px) {
