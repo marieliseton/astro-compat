@@ -145,9 +145,9 @@ const BLUR_BG = {
 }
 
 // Bouton bleu premium — même CSS que le CTA « Commencer ».
-function BlueButton({ label, onClick, style }) {
+function BlueButton({ label, onClick, style, className }) {
   return (
-    <button onClick={onClick} style={{ position:'relative', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0, flexShrink:0, ...style }}>
+    <button className={className} onClick={onClick} style={{ position:'relative', width:155, height:52, background:'linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%)', border:'1px solid #0052BC', borderRadius:100, cursor:'pointer', overflow:'hidden', padding:0, flexShrink:0, ...style }}>
       <div style={{ position:'absolute', left:'calc(50% - 65.5px)', top:2, width:131, height:25, background:'linear-gradient(181.02deg,#E1F0FF 12.94%,rgba(225,240,255,0.4) 56.69%,rgba(17,110,233,0.5) 92.77%)', borderRadius:100, pointerEvents:'none' }} />
       <span style={{ position:'relative', fontFamily:"'IM Fell DW Pica',serif", fontSize:24, letterSpacing:'-0.04em', color:'#fff', textShadow:'0px 1px 1.6px #0164E7', lineHeight:'52px' }}>{label}</span>
     </button>
@@ -365,7 +365,9 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
           <FieldTime  label={labels[3]} timeRaw={timeRaw} onTimeChange={setTimeRaw} onEnter={handleSubmit} inputRef={refTime} />
         </div>
         {error && <div style={{ width:322, maxWidth:'100%', marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>}
-        <BlueButton label="valider" onClick={handleSubmit} style={{ marginTop:30 }} />
+        <div className="valider-wrap">
+          <BlueButton label="valider" onClick={handleSubmit} />
+        </div>
       </div>
     </div>
   )
@@ -412,15 +414,6 @@ function PlanetNav({ cat, active, onSelect }) {
           transition:'opacity 0.4s ease, transform 0.4s cubic-bezier(0.22,1,0.36,1)',
         }}
       >
-        {active && (
-          /* orbite inclinée + satellite (hors du clip de la boule) */
-          <span className="pn-orbit-tilt" style={{ position:'absolute', top:'50%', left:'50%', width:62, height:62, marginTop:-31, marginLeft:-31, transform:'rotateX(70deg)', pointerEvents:'none' }}>
-            <span style={{ position:'absolute', inset:0, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.5)' }} />
-            <span className="pn-orbit" style={{ position:'absolute', inset:0 }}>
-              <span style={{ position:'absolute', top:-2, left:'50%', width:5, height:5, marginLeft:-2.5, borderRadius:'50%', background:'#fff', boxShadow:'0 0 5px 1px rgba(255,255,255,0.9)' }} />
-            </span>
-          </span>
-        )}
         {/* la boule (clip interne de la surface) */}
         <span style={{
           position:'relative', overflow:'hidden', width:40, height:40, borderRadius:'50%', background:cat.disc,
@@ -451,9 +444,10 @@ function PlanetNav({ cat, active, onSelect }) {
         </span>
       </span>
       <span
+        className="pn-label"
         style={{
           fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic',
-          fontSize:12, lineHeight:'14px', letterSpacing:'-0.04em', textAlign:'center',
+          lineHeight:'14px', letterSpacing:'-0.04em', textAlign:'center',
           color:'#575757', whiteSpace:'nowrap',
           opacity: active ? 1 : 0.5, fontWeight: active ? 700 : 400,
           transition:'opacity 0.4s ease',
@@ -469,12 +463,17 @@ function ResultView({ result, onRestart }) {
   const [active, setActive]   = useState('harmony')
   const [shown, setShown]     = useState('harmony')
   const [visible, setVisible] = useState(true)
+  const scrollRef = useRef(null)
 
-  // Fondu : sortie complète → changement de contenu → entrée.
+  // Fondu : sortie → reset scroll → changement de contenu → entrée.
   useEffect(() => {
     if (active === shown) return
     setVisible(false)
-    const t = setTimeout(() => { setShown(active); setVisible(true) }, 320)
+    const t = setTimeout(() => {
+      setShown(active)
+      setVisible(true)
+      if (scrollRef.current) scrollRef.current.scrollTop = 0
+    }, 320)
     return () => clearTimeout(t)
   }, [active, shown])
 
@@ -483,8 +482,8 @@ function ResultView({ result, onRestart }) {
   return (
     <div className="result-screen" style={{ position:'absolute', inset:0, background:BG, overflow:'hidden' }}>
 
-      {/* ── Haut : eyebrow + score (avec %) ── */}
-      <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh)', left:0, right:0, display:'flex', flexDirection:'column', alignItems:'center' }}>
+      {/* ── Haut : eyebrow + score (avec %) — non interactif pour ne pas bloquer le scroll ── */}
+      <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh)', left:0, right:0, display:'flex', flexDirection:'column', alignItems:'center', pointerEvents:'none', zIndex:1 }}>
         <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
           votre compatibilité
         </div>
@@ -492,21 +491,29 @@ function ResultView({ result, onRestart }) {
           <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }}>
             {result.score}
           </span>
-          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'0.2em', lineHeight:1, letterSpacing:'-0.04em', marginTop:'0.12em', marginLeft:'0.05em' }}>
+          <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'0.2em', lineHeight:1, letterSpacing:'-0.04em', marginTop:'0.12em', marginLeft:'0.15em' }}>
             %
           </span>
         </div>
       </div>
 
-      {/* ── Texte de la catégorie active : ancré sous le score, file derrière la pastille ── */}
-      <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:'50%', transform:'translateX(-50%)', width:'min(353px, 90vw)', overflow:'hidden' }}>
-        <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
-          {text}
-        </p>
+      {/* ── Zone scrollable : texte + recommencer ── */}
+      <div
+        ref={scrollRef}
+        style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:0, right:0, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain' }}
+      >
+        <div style={{ width:'min(353px, 90vw)', margin:'0 auto', paddingBottom:'calc(env(safe-area-inset-bottom) + 170px)' }}>
+          <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'normal', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+            {text}
+          </p>
+          <button onClick={onRestart} style={{ display:'block', marginTop:40, fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
+            recommencer
+          </button>
+        </div>
       </div>
 
-      {/* ── Bas : pastille liquid glass flottante + recommencer (40px sous la barre) ── */}
-      <div className="result-bottom" style={{ position:'absolute', left:0, right:0, bottom:'calc(env(safe-area-inset-bottom) + 24px)', display:'flex', flexDirection:'column', alignItems:'center', gap:40 }}>
+      {/* ── Bas : pastille liquid glass flottante (fixe) ── */}
+      <div className="result-bottom" style={{ position:'absolute', left:0, right:0, bottom:'calc(env(safe-area-inset-bottom) + 24px)', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{
           position:'relative', width:'min(385px, 92vw)', height:98, borderRadius:200,
           background:'rgba(255,255,255,0.14)',
@@ -522,10 +529,6 @@ function ResultView({ result, onRestart }) {
             ))}
           </div>
         </div>
-
-        <button onClick={onRestart} style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:13, letterSpacing:'-0.04em', color:PURPLE, opacity:0.6, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', textUnderlineOffset:3 }}>
-          recommencer
-        </button>
       </div>
     </div>
   )
@@ -857,6 +860,7 @@ export default function App() {
         <style>{`
           .dots::after { content:''; animation:dots 1.2s steps(4,end) infinite; }
           @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+          /* Lettre initiale grande + italique ; reste du texte en regular */
           .cat-text::first-letter {
             font-size: 3.1em;
             line-height: 0.72;
@@ -864,20 +868,24 @@ export default function App() {
             padding: 0.04em 0.09em 0 0;
             font-style: italic;
           }
-          /* Bille active : rotation visible (planète), orbite + scintillement */
+          /* Labels des onglets */
+          .pn-label { font-size: 12px; }
+          /* Marge bouton valider */
+          .valider-wrap { margin-top: 30px; }
+          /* Bille active : rotation planète + scintillement */
           @keyframes planetSpin { to { transform: rotate(360deg); } }
-          @keyframes orbitSpin  { to { transform: rotate(360deg); } }
           @keyframes ballTwinkle { 0%,100% { opacity: 0.3; transform: scale(0.85); } 50% { opacity: 0.95; transform: scale(1.05); } }
           .pn-spin { animation: planetSpin 9s linear infinite; }
-          .pn-orbit { animation: orbitSpin 7s linear infinite; }
           .pn-twinkle { animation: ballTwinkle 2.8s ease-in-out infinite; }
           @media (prefers-reduced-motion: reduce) {
-            .pn-spin, .pn-orbit, .pn-twinkle { animation: none; }
+            .pn-spin, .pn-twinkle { animation: none; }
           }
-          /* Desktop : on remonte la barre d'onglets (~100px sous elle) */
+          /* Desktop */
           @media (min-width: 900px) {
             .result-bottom { bottom: 44px !important; }
-            .cat-text { font-size: 20px !important; line-height: 1.4 !important; }
+            .cat-text { font-size: 24px !important; line-height: 1.4 !important; }
+            .pn-label { font-size: 14px; }
+            .valider-wrap { margin-top: 40px; }
           }
         `}</style>
       </div>
