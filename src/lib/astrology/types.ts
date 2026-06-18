@@ -39,13 +39,14 @@ export interface NatalChart {
   uranus:  PlanetPosition;
   neptune: PlanetPosition;
   pluto:   PlanetPosition;
+  northNode: PlanetPosition; // nœud lunaire nord (moyen) — axe de croissance
   ascendant: { longitude: number; sign: ZodiacSign; signDegree: number };
   houses: number[]; // 12 cusps in ecliptic longitude
 }
 
 export interface Aspect {
-  planetA: PlanetKey | 'ascendant';
-  planetB: PlanetKey | 'ascendant';
+  planetA: PlanetKey | 'ascendant' | 'northNode';
+  planetB: PlanetKey | 'ascendant' | 'northNode';
   aspect: AspectType;
   orb: number;     // degrees
   exact: number;   // 0-100 (100 = perfect)

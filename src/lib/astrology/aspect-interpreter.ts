@@ -1,11 +1,12 @@
-import type { Aspect } from './types';
+import type { Aspect, StructuredContent } from './types';
 
 interface Translation {
   harmonic: string;
   discordant: string;
 }
 
-// Clés triées alphabétiquement (ex: 'mercury' < 'moon', 'jupiter' < 'mars')
+// Clés triées alphabétiquement (ex: 'mercury' < 'moon', 'jupiter' < 'mars').
+// 'ascendant' → 'asc', 'northNode' → 'node' (voir normKey).
 const TRANSLATIONS: Record<string, Translation> = {
   'moon-sun':        { harmonic: 'Vous avez une facilité naturelle à vous sentir compris et accueillis mutuellement.', discordant: 'Vos besoins émotionnels et vos attentes peuvent parfois tirer dans des directions différentes.' },
   'moon-moon':       { harmonic: 'Vos sensibilités se rejoignent souvent sans effort, ce qui facilite une vraie compréhension.', discordant: 'Vous ne traitez pas toujours les situations émotionnelles au même rythme.' },
@@ -34,28 +35,48 @@ const TRANSLATIONS: Record<string, Translation> = {
   'venus-venus':     { harmonic: 'Vous partagez des valeurs et des goûts similaires qui favorisent l\'harmonie.', discordant: 'Vos attentes relationnelles peuvent parfois diverger sans que l\'un ni l\'autre ne le remarque.' },
   'moon-pluto':      { harmonic: 'Votre relation a une profondeur qui favorise une transformation mutuelle.', discordant: 'Des dynamiques intenses peuvent parfois créer une pression émotionnelle difficile à gérer.' },
   'pluto-sun':       { harmonic: 'Votre relation a une capacité de transformation et d\'évolution mutuelle profonde.', discordant: 'Des dynamiques de pouvoir peuvent parfois s\'installer inconsciemment entre vous.' },
+  'pluto-venus':     { harmonic: 'Vos liens ont tendance à devenir intenses et profonds plutôt que superficiels.', discordant: 'L\'attachement peut parfois virer au tout-ou-rien, avec une intensité difficile à doser.' },
+  'mars-pluto':      { harmonic: 'Vous partagez une vraie capacité à vous investir à fond dans ce que vous entreprenez.', discordant: 'Les rapports de force peuvent monter vite quand chacun campe sur ses positions.' },
+  'pluto-saturn':    { harmonic: 'Vous savez tenir bon ensemble dans la durée, même quand c\'est exigeant.', discordant: 'Des bras de fer peuvent s\'installer et durer si aucun des deux ne lâche.' },
   'asc-mercury':     { harmonic: 'Vos échanges sont naturellement fluides et stimulants pour les deux.', discordant: 'La façon dont l\'un se présente peut parfois être mal interprétée par l\'autre.' },
   'asc-asc':         { harmonic: 'Vous avez une belle aisance à vous retrouver et à interagir naturellement.', discordant: 'Vos façons d\'aborder les autres et les situations peuvent parfois différer fortement.' },
   'mercury-saturn':  { harmonic: 'L\'un apporte de la rigueur et de la profondeur aux échanges de l\'autre.', discordant: 'L\'un peut parfois ressentir que l\'autre n\'est pas pleinement disponible dans les échanges.' },
+  // ── Nœud nord (axe de croissance) — alimente surtout « évolution » ─────────
+  'node-sun':        { harmonic: 'L\'un aide l\'autre à aller dans le sens de ce qui compte vraiment pour lui.', discordant: 'Vos trajectoires de vie ne pointent pas spontanément dans la même direction.' },
+  'moon-node':       { harmonic: 'Vous touchez assez vite à quelque chose d\'important l\'un pour l\'autre, au-delà du quotidien.', discordant: 'Ce que l\'un recherche au fond ne coïncide pas toujours avec ce que l\'autre attend.' },
+  'node-venus':      { harmonic: 'Cette relation a de quoi faire évoluer votre façon d\'aimer et d\'apprécier les choses.', discordant: 'Vos envies profondes peuvent diverger, ce qui demande des ajustements sur la durée.' },
+  'jupiter-node':    { harmonic: 'Ensemble, vous avez tendance à ouvrir des portes et à voir plus grand.', discordant: 'Vos idées de ce vers quoi tendre peinent parfois à se rejoindre.' },
+  'node-saturn':     { harmonic: 'Cette relation peut vous faire mûrir et poser des bases solides sur le long terme.', discordant: 'Le sérieux de l\'un peut peser sur l\'élan de l\'autre avant de devenir constructif.' },
+  'mars-node':       { harmonic: 'Vous vous donnez mutuellement l\'impulsion d\'avancer vers vos objectifs.', discordant: 'Vos manières d\'agir peuvent se contrarier avant de trouver leur rythme.' },
 };
 
-// 'ascendant' → 'asc' pour matcher les clés de TRANSLATIONS.
-const normKey = (k: string): string => (k === 'ascendant' ? 'asc' : k);
+// 'ascendant' → 'asc', 'northNode' → 'node' pour matcher les clés de TRANSLATIONS.
+const normKey = (k: string): string =>
+  k === 'ascendant' ? 'asc' : k === 'northNode' ? 'node' : k;
 
+function pairKey(asp: Aspect): string {
+  return [normKey(String(asp.planetA)), normKey(String(asp.planetB))].sort().join('-');
+}
+
+function phraseFor(asp: Aspect): string | null {
+  const tr = TRANSLATIONS[pairKey(asp)];
+  if (!tr) return null;
+  return asp.harmonic ? tr.harmonic : tr.discordant;
+}
+
+// Conservé pour compatibilité (vue globale positive/négative).
 export function interpretAspects(aspects: Aspect[]): { positive: string[]; negative: string[] } {
   const positive: string[] = [];
   const negative: string[] = [];
   const used = new Set<string>();
 
   for (const asp of aspects) {
-    const pair = [normKey(String(asp.planetA)), normKey(String(asp.planetB))].sort().join('-');
+    const pair = pairKey(asp);
     const tr = TRANSLATIONS[pair];
     if (!tr) continue;
-
     const key = `${pair}-${asp.harmonic ? 'h' : 'd'}`;
     if (used.has(key)) continue;
     used.add(key);
-
     if (asp.harmonic) positive.push(tr.harmonic);
     else negative.push(tr.discordant);
   }
@@ -63,34 +84,123 @@ export function interpretAspects(aspects: Aspect[]): { positive: string[]; negat
   return { positive, negative };
 }
 
-// Fallback local : produit les 4 textes par catégorie à partir des aspects.
-// Chaque catégorie garde sa voix propre, sans jargon astrologique.
+// ── Catégorisation : chaque facette est dérivée de corps DIFFÉRENTS ───────────
+// harmony   : Vénus / Lune / Soleil, liens fluides (trigone, sextile, conj. douce)
+// tension   : Mars / Saturne / Pluton, liens durs (carré, opposition)
+// dynamic   : Mercure / Soleil / Lune (communication & fonctionnement quotidien)
+// evolution : Saturne / Jupiter / Nœud nord (apprentissage & croissance)
+const HARMONY_BODIES = new Set(['venus', 'moon', 'sun']);
+const TENSION_BODIES = new Set(['mars', 'saturn', 'pluto']);
+const DYNAMIC_BODIES = new Set(['mercury', 'sun', 'moon']);
+// évolution = Jupiter & Nœud nord (tout lien) + Saturne CONSTRUCTIF (lien fluide).
+// Défini dans la boucle car ce n'est pas un simple « involves ».
+
+export interface CategoryEvidence {
+  harmony: string[];
+  tension: string[];
+  dynamic: string[];
+  evolution: string[];
+}
+
+const MAX_PER_CAT = 5;
+
+// À partir des aspects de synastrie (triés par justesse décroissante), répartit
+// des indices en langage clair dans les 4 facettes. Chaque facette ne pioche
+// que dans SES corps et SON type de lien → 4 angles réellement différents.
+export function categorizeEvidence(aspects: Aspect[]): CategoryEvidence {
+  const out: CategoryEvidence = { harmony: [], tension: [], dynamic: [], evolution: [] };
+  const seen = {
+    harmony: new Set<string>(), tension: new Set<string>(),
+    dynamic: new Set<string>(), evolution: new Set<string>(),
+  };
+
+  const add = (cat: keyof CategoryEvidence, dedupe: string, phrase: string | null) => {
+    if (!phrase || out[cat].length >= MAX_PER_CAT || seen[cat].has(dedupe)) return;
+    seen[cat].add(dedupe);
+    out[cat].push(phrase);
+  };
+
+  for (const asp of aspects) {
+    const a = normKey(String(asp.planetA));
+    const b = normKey(String(asp.planetB));
+    const pair = [a, b].sort().join('-');
+    const tr = TRANSLATIONS[pair];
+    if (!tr) continue;
+
+    const involves = (s: Set<string>) => s.has(a) || s.has(b);
+    const both = (s: Set<string>) => s.has(a) && s.has(b);
+    const isHard = asp.aspect === 'square' || asp.aspect === 'opposition';
+
+    // HARMONIE : liens fluides touchant Vénus/Lune/Soleil
+    if (asp.harmonic && involves(HARMONY_BODIES)) add('harmony', pair, tr.harmonic);
+    // TENSION : carrés & oppositions touchant Mars/Saturne/Pluton
+    if (isHard && involves(TENSION_BODIES)) add('tension', pair, tr.discordant);
+    // DYNAMIQUE : Mercure/Soleil/Lune entre eux (manière d'interagir au quotidien)
+    if (both(DYNAMIC_BODIES)) add('dynamic', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+    // ÉVOLUTION : croissance — Jupiter & Nœud nord (tout lien) + Saturne fluide.
+    // (Les liens DURS à Saturne/Pluton restent en TENSION → pas de doublon.)
+    const growth = a === 'jupiter' || b === 'jupiter' || a === 'node' || b === 'node'
+      || ((a === 'saturn' || b === 'saturn') && asp.harmonic);
+    if (growth) add('evolution', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+  }
+
+  return out;
+}
+
+// ── Fallback local : 4 textes ANCRÉS dans les indices de chaque facette ───────
+// Pas de jargon astrologique, mais chaque texte découle des indices observés et
+// répond à SA question — jamais une reformulation du même résumé.
 export function buildLocalContent(
   aspects: Aspect[],
   p1Name: string,
   p2Name: string,
   score: number,
-): import('./types').StructuredContent {
-  // Textes plus longs, directs et fun (~65 mots max). Voix distincte par onglet.
-  // ── Harmonie : ce qui rapproche ──────────────────────────────────────────
-  const harmony = score >= 60
-    ? `Soyons clairs : ${p1Name} et ${p2Name}, ça matche. Vous attrapez les blagues de l'autre au vol et vous tombez d'accord sur l'essentiel sans même y réfléchir. Il y a ce petit confort de te sentir compris·e sans avoir à faire un dessin. Le genre de complicité qui rend même les trucs banals carrément agréables.`
-    : `Pas de coup de foudre évident ici, mais ne zappez pas trop vite. ${p1Name} et ${p2Name} ont plus de points communs qu'il n'y paraît — il faut juste gratter un peu. Et quand le courant passe, il passe pour de vrai. C'est souvent là, dans les petits moments, que ça devient intéressant.`;
+): StructuredContent {
+  const ev = categorizeEvidence(aspects);
+  const hi = score >= 60;
+  const mid = score >= 50;
 
-  // ── Tension : zones de friction ──────────────────────────────────────────
-  const tension = score >= 55
-    ? `Là où ça frotte ? Vous ne carburez pas toujours au même rythme. L'un fonce pendant que l'autre veut peser le pour et le contre, et ces décalages peuvent agacer si personne ne lâche du lest. Rien de dramatique — juste les classiques à surveiller avant que ça monte en sauce.`
-    : `Autant le dire : il y a du sport. Vos façons de réagir partent vite dans des directions opposées, et ce qui semble évident pour l'un paraît complètement à côté de la plaque pour l'autre. Bonne nouvelle : poser le truc à voix haute désamorce 90 % des étincelles. Encore faut-il oser.`;
+  // Pioche des indices SANS répéter une même phrase d'une facette à l'autre.
+  // L'ordre des appels garantit l'unicité (harmonie se sert en premier, etc.).
+  const used = new Set<string>();
+  const pick = (arr: string[], n = 3): string => {
+    const chosen: string[] = [];
+    for (const s of arr) {
+      if (chosen.length >= n) break;
+      if (used.has(s)) continue;
+      used.add(s);
+      chosen.push(s);
+    }
+    return chosen.join(' ');
+  };
+  const hBody = pick(ev.harmony);
+  const tBody = pick(ev.tension);
+  const dBody = pick(ev.dynamic);
+  const eBody = pick(ev.evolution);
 
-  // ── Dynamique : leur manière d'interagir ─────────────────────────────────
-  const dynamic = score >= 60
-    ? `Ensemble, vous formez une équipe qui tourne : l'un lance les idées, l'autre les rend réelles. ${p1Name} et ${p2Name} se complètent au lieu de se marcher dessus, et c'est précisément ce qui fait avancer les choses. Donnez-vous juste assez d'espace pour briller chacun de votre côté, et ça roule.`
-    : `Votre dynamique vient avec un mode d'emploi. ${p1Name} et ${p2Name} n'avancent pas au même tempo, et tant que chacun essaie de caler l'autre sur le sien, ça grince. Le jour où vous faites de la place à la méthode de l'autre, ça se transforme en vraie conversation — et là, c'est fun.`;
+  // HARMONIE — « Qu'est-ce qui les rapproche naturellement ? »
+  const harmony = hBody
+    ? `${hi ? `${p1Name} et ${p2Name}, il y a un vrai socle commun.` : `Entre ${p1Name} et ${p2Name}, l'évidence ne saute pas aux yeux, mais le socle existe.`} ${hBody}`
+    : `Les affinités entre ${p1Name} et ${p2Name} se construisent par petites touches plutôt que d'emblée : c'est dans la durée et les détails partagés que le lien prend.`;
 
-  // ── Évolution : ce que la relation enseigne ──────────────────────────────
-  const evolution = score >= 60
-    ? `Le truc cool, c'est que cette relation vous tire vers le haut. ${p1Name} et ${p2Name} se poussent à tester des choses, à sortir de leur zone de confort, à devenir une version un peu plus aboutie d'eux-mêmes. Avec le temps, vous risquez de construire bien plus grand que ce que vous aviez en tête.`
-    : `Le vrai cadeau ici, c'est l'apprentissage. ${p1Name} et ${p2Name} ne se ressemblent pas, et c'est exactement ce qui rend la relation formatrice : vous apprenez autant sur l'autre que sur vous-mêmes. Pas toujours confortable, souvent payant. Voyez ça comme un entraînement déguisé en relation.`;
+  // TENSION — « Quels sont les défis de cette relation ? »
+  const tension = tBody
+    ? `${mid ? `Rien d'ingérable, mais voilà où ça frotte.` : `Autant le dire : il y a du sport.`} ${tBody}`
+    : `Peu de heurts frontaux entre ${p1Name} et ${p2Name} : les frictions, quand elles viennent, tiennent surtout à des différences de rythme qu'il faut apprendre à doser.`;
+
+  // DYNAMIQUE — « Comment fonctionnent-ils ensemble au quotidien ? »
+  const dynamic = dBody
+    ? `Au quotidien, voilà comment vous tournez. ${dBody}`
+    : `${p1Name} et ${p2Name} se cherchent un peu avant de trouver leur tempo : une fois le partage des rôles posé, l'interaction devient nettement plus fluide.`;
+
+  // ÉVOLUTION — « Que peut apporter cette relation ? »
+  const evolution = eBody
+    ? `Ce que cette relation peut vous apporter : ${lowerFirst(eBody)}`
+    : `Le potentiel ici est dans l'apprentissage : ${p1Name} et ${p2Name} se font mûrir mutuellement, à condition d'accueillir ce que l'autre fait différemment.`;
 
   return { harmony, tension, dynamic, evolution };
+}
+
+function lowerFirst(s: string): string {
+  return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }

@@ -758,20 +758,19 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const p1Ref = useRef(null)
 
-  // ── iOS 26 : data-screen sur <html> avant le paint ───────────────────────
+  // ── Couleur des barres système (full-bleed) ───────────────────────────────
+  // data-screen + theme-color réglés AVANT le paint pour que la barre haute du
+  // navigateur (Android / iOS) prenne la couleur du fond sans flash. La barre
+  // basse suit via le fond edge-to-edge (et la couleur du manifest en PWA).
   useLayoutEffect(() => {
     document.documentElement.setAttribute('data-screen', String(screen))
-  }, [screen])
-
-  // ── theme-color : Android Chrome + desktop ────────────────────────────────
-  useEffect(() => {
-    const topColor = SCREEN_TOP[screen]
-    const existing = document.querySelector('meta[name="theme-color"]')
-    if (existing) existing.remove()
-    const meta = document.createElement('meta')
-    meta.name = 'theme-color'
-    meta.content = topColor
-    document.head.appendChild(meta)
+    let meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.setAttribute('name', 'theme-color')
+      document.head.appendChild(meta)
+    }
+    meta.setAttribute('content', SCREEN_TOP[screen])
   }, [screen])
 
   async function calculate(p1, p2) {

@@ -1,0 +1,14 @@
+{
+  "name": "astro0o0",
+  "short_name": "astro0o0",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/apple-icon.png", "type": "image/png", "sizes": "180x180", "purpose": "any" }
+  ]
+}
