@@ -8,7 +8,24 @@
    Règle : toujours utiliser la couleur du BORD HAUT du dégradé.
    ─────────────────────────────────────────────────────────────────────────── */
 
-html[data-screen="1"] { background: #ffffff; }
+@keyframes home-gradient {
+  from { background-position: 0 0; }
+  to   { background-position: 0 1200px; }
+}
+
+html[data-screen="1"] {
+  background: repeating-linear-gradient(
+    180deg,
+    #ffffff   0%,
+    #00ccff  20%,
+    #fbff00  40%,
+    #fb97d3  65%,
+    #e74fa5  85%,
+    #ffffff 100%
+  );
+  background-size: 100% 1200px;
+  animation: home-gradient 6s linear infinite;
+}
 html[data-screen="1"] body { background-color: #ffffff; }
 
 html[data-screen="2"] { background: linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%) fixed; }
