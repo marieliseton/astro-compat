@@ -523,10 +523,16 @@ function ResultView({ result, onRestart }) {
       {/* ── Retour accueil (haut gauche) — recommence le parcours ── */}
       <button onClick={onRestart} aria-label="recommencer" className="result-home"
         style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 12px)', left:10, zIndex:5,
-          background:'none', border:'none', cursor:'pointer', padding:'10px 12px',
-          fontFamily:"'IM Fell DW Pica',serif", fontSize:26, lineHeight:1, letterSpacing:'-0.02em',
-          color:PURPLE, opacity:0.85, WebkitTapHighlightColor:'transparent' }}>
-        ⋆˚꩜｡
+          background:'none', border:'none', padding:0, cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
+        <span style={{
+          display:'inline-flex', textAlign:'center', justifyContent:'center', alignItems:'center',
+          lineHeight:'100%', padding:11, fontSize:10, fontStyle:'normal', objectFit:'contain',
+          fontFamily:'cursive', color:'blue', border:'6px double blue',
+        }}>
+          <img src="https://autopoies.is/buttons/img/32.gif" alt="" style={{ maxHeight:32 }} />
+          ❝ recommencer❞
+          <img src="https://autopoies.is/buttons/img/32.gif" alt="" style={{ maxHeight:32 }} />
+        </span>
       </button>
 
       {/* ── Zone scrollable : texte de la catégorie active ── */}
