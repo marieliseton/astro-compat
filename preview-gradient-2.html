@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview 2 — Néon fuchsia</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+
+  /* ── Gradient animé : bands néon vif, transitions nettes ── */
+  body {
+    background: repeating-linear-gradient(
+      180deg,
+      #ff0090 0px,
+      #f500a0 60px,
+      #cc0074 120px,
+      #ff3ba8 180px,
+      #ff0090 240px
+    );
+    background-size: 100% 100%;
+    animation: slide 3.5s linear infinite;
+  }
+
+  @keyframes slide {
+    0%   { background-position: 0 0; }
+    100% { background-position: 0 240px; }
+  }
+
+  /* ── Grille d'étoiles (simulation) ── */
+  #stars {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    pointer-events: none;
+  }
+
+  /* ── Contenu centré ── */
+  .content {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    z-index: 2;
+  }
+  .title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 38px;
+    color: #fff;
+    text-shadow: 0 2px 18px rgba(0,0,0,.3);
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  .field {
+    width: 290px;
+    height: 52px;
+    background: rgba(255,255,255,0.88);
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    font-family: Georgia, serif;
+    font-size: 18px;
+    color: #999;
+  }
+  .btn {
+    width: 155px;
+    height: 52px;
+    background: linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%);
+    border: 1px solid #0052BC;
+    border-radius: 100px;
+    color: #fff;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    cursor: pointer;
+  }
+  .badge {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-family: sans-serif;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="content">
+  <div class="title">compatibilité<br>astrale</div>
+  <div class="field">prénom 1</div>
+  <div class="field">prénom 2</div>
+  <div class="field">date de naissance</div>
+  <div class="btn" style="display:flex;align-items:center;justify-content:center">voir</div>
+</div>
+
+<div class="badge">Option 2 — Néon fuchsia · bandes nettes · 3.5s</div>
+
+<script>
+const SYMS = ['✩','✧','＊','*','˚','₊','⁺','°','✦','⋆','˖','•','‧',
+  '★','✪','☆','✨','💫','✱','✰','⋆','˖']
+const COLORS = [
+  '#ffcce5','#ff99cc','#ffaacc','#fff','#ffddee',
+  '#ff80bb','#ffc5e0','#ffe0ef','#fff','#ffaad4'
+]
+
+const grid = document.getElementById('stars')
+const CELL = 32
+function build() {
+  grid.innerHTML = ''
+  const cols = Math.ceil(window.innerWidth / CELL)
+  const rows = Math.ceil(window.innerHeight / CELL)
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+  grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`
+  const cells = []
+  for (let i = 0; i < cols * rows; i++) {
+    const d = document.createElement('div')
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:17px;'
+    d.textContent = SYMS[Math.floor(Math.random() * SYMS.length)]
+    const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+    d.style.color = c
+    d.dataset.base = c
+    grid.appendChild(d)
+    cells.push(d)
+  }
+  return cells
+}
+let cells = build()
+window.addEventListener('resize', () => { cells = build() })
+
+function twinkle() {
+  const n = Math.floor(Math.random() * 4) + 1
+  for (let i = 0; i < n; i++) {
+    const c = cells[Math.floor(Math.random() * cells.length)]
+    if (!c) continue
+    c.style.transition = 'color .05s'
+    c.style.color = '#fff'
+    c.style.fontSize = '20px'
+    setTimeout(() => { c.style.color = c.dataset.base; c.style.fontSize = '17px' }, 150 + Math.random()*200)
+  }
+  setTimeout(twinkle, 80 + Math.random() * 250)
+}
+twinkle()
+</script>
+</body>
+</html>
