@@ -36,7 +36,7 @@ const PAIRS: [Person, Person, string][] = [
   [P('O1', 1986, 4, 1, 8, 8, ...NYC),     P('O2', 1986, 10, 8, 16, 40, ...TOKYO), 'même année, ~6 mois'],
 ];
 
-interface Row { label: string; score: number; support: number; friction: number; balance: number; n: number; }
+interface Row { label: string; score: number; h: number; t: number; d: number; e: number; n: number; }
 const rows: Row[] = [];
 
 for (const [p1, p2, label] of PAIRS) {
@@ -44,16 +44,16 @@ for (const [p1, p2, label] of PAIRS) {
   const c2 = calculateChart(p2.bd);
   const aspects = calculateSynastry(c1, c2);
   const b = computeScoreBreakdown(aspects);
-  rows.push({ label, score: b.score, support: b.support, friction: b.friction, balance: b.balance, n: aspects.length });
+  rows.push({ label, score: b.score, h: b.facets.harmony, t: b.facets.tension, d: b.facets.dynamic, e: b.facets.evolution, n: aspects.length });
 }
 
 // ── Tableau ──
-console.log('\n=== SCORES PAR PAIRE ===\n');
-console.log('score | support | friction | balance | #asp | description');
-console.log('------|---------|----------|---------|------|------------');
+console.log('\n=== SCORES PAR PAIRE (global + 4 sous-scores) ===\n');
+console.log('global | harmo | tens | dyn | évol | #asp | description');
+console.log('-------|-------|------|-----|------|------|------------');
 for (const r of rows.sort((a, b) => b.score - a.score)) {
   console.log(
-    `${String(r.score).padStart(5)} | ${r.support.toFixed(1).padStart(7)} | ${r.friction.toFixed(1).padStart(8)} | ${r.balance.toFixed(2).padStart(7)} | ${String(r.n).padStart(4)} | ${r.label}`
+    `${String(r.score).padStart(6)} | ${String(r.h).padStart(5)} | ${String(r.t).padStart(4)} | ${String(r.d).padStart(3)} | ${String(r.e).padStart(4)} | ${String(r.n).padStart(4)} | ${r.label}`
   );
 }
 

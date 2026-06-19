@@ -10,8 +10,8 @@ const base2: BirthData = { year: 1990, month: 6, day: 15, hour: 15, minute: 0, l
 
 console.log('\n=== SENSIBILITÉ À L\'HEURE DE NAISSANCE (p1) ===');
 console.log('La 2e personne est fixe. On bouge seulement l\'heure de p1.\n');
-console.log('heure | score | support | friction | #asp');
-console.log('------|-------|---------|----------|-----');
+console.log('heure | score |   harmo | tension | #asp');
+console.log('------|-------|---------|---------|-----');
 
 const scores: number[] = [];
 for (let h = 0; h < 24; h += 2) {
@@ -21,7 +21,7 @@ for (let h = 0; h < 24; h += 2) {
   const aspects = calculateSynastry(c1, c2);
   const b = computeScoreBreakdown(aspects);
   scores.push(b.score);
-  console.log(`${String(h).padStart(5)} | ${String(b.score).padStart(5)} | ${b.support.toFixed(0).padStart(7)} | ${b.friction.toFixed(0).padStart(8)} | ${String(aspects.length).padStart(4)}`);
+  console.log(`${String(h).padStart(5)} | ${String(b.score).padStart(5)} | ${String(b.facets.harmony).padStart(7)} | ${String(b.facets.tension).padStart(8)} | ${String(aspects.length).padStart(4)}`);
 }
 
 const min = Math.min(...scores), max = Math.max(...scores);
