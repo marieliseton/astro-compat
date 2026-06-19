@@ -147,9 +147,8 @@ export function categorizeEvidence(aspects: Aspect[]): CategoryEvidence {
   return out;
 }
 
-// ── Fallback local : 4 textes ANCRÉS dans les indices de chaque facette ───────
-// Pas de jargon astrologique, mais chaque texte découle des indices observés et
-// répond à SA question — jamais une reformulation du même résumé.
+// ── Fallback local : 4 textes en deux paragraphes, ancrés dans les indices ─────
+// Même format que la sortie Gemini : "para1\n\npara2" par facette.
 export function buildLocalContent(
   aspects: Aspect[],
   p1Name: string,
@@ -160,47 +159,63 @@ export function buildLocalContent(
   const hi = score >= 60;
   const mid = score >= 50;
 
-  // Pioche des indices SANS répéter une même phrase d'une facette à l'autre.
-  // L'ordre des appels garantit l'unicité (harmonie se sert en premier, etc.).
   const used = new Set<string>();
-  const pick = (arr: string[], n = 3): string => {
-    const chosen: string[] = [];
+  const pickArr = (arr: string[], n: number): string[] => {
+    const out: string[] = [];
     for (const s of arr) {
-      if (chosen.length >= n) break;
+      if (out.length >= n) break;
       if (used.has(s)) continue;
       used.add(s);
-      chosen.push(s);
+      out.push(s);
     }
-    return chosen.join(' ');
+    return out;
   };
-  const hBody = pick(ev.harmony);
-  const tBody = pick(ev.tension);
-  const dBody = pick(ev.dynamic);
-  const eBody = pick(ev.evolution);
+  const two = (arr: string[]) => pickArr(arr, 2);
+  const one = (arr: string[]) => pickArr(arr, 1)[0] ?? '';
 
-  // HARMONIE — « Qu'est-ce qui les rapproche naturellement ? »
-  const harmony = hBody
-    ? `${hi ? `${p1Name} et ${p2Name}, il y a un vrai socle commun.` : `Entre ${p1Name} et ${p2Name}, l'évidence ne saute pas aux yeux, mais le socle existe.`} ${hBody}`
-    : `Les affinités entre ${p1Name} et ${p2Name} se construisent par petites touches plutôt que d'emblée : c'est dans la durée et les détails partagés que le lien prend.`;
+  // HARMONIE
+  const h = two(ev.harmony);
+  const harmonyP1 = h.length
+    ? `${hi ? `${p1Name} et ${p2Name}, il y a un vrai socle commun.` : `Entre ${p1Name} et ${p2Name}, l'évidence ne saute pas aux yeux, mais le socle existe.`} ${h.join(' ')}`
+    : `Les affinités entre ${p1Name} et ${p2Name} se construisent par petites touches plutôt que d'emblée. C'est dans la durée et les détails partagés que le lien prend.`;
+  const h2 = one(ev.harmony);
+  const harmonyP2 = h2
+    ? `${h2} Ce qui rapproche ${p1Name} et ${p2Name} ne s'épuise pas — il s'étoffe avec le temps.`
+    : `Ce que vous partagez ne se résume pas à des affinités de surface. La solidité de ce lien tient à une façon similaire d'aborder ce qui compte, même quand les manières de l'exprimer diffèrent.`;
+  const harmony = `${harmonyP1}\n\n${harmonyP2}`;
 
-  // TENSION — « Quels sont les défis de cette relation ? »
-  const tension = tBody
-    ? `${mid ? `Rien d'ingérable, mais voilà où ça frotte.` : `Autant le dire : il y a du sport.`} ${tBody}`
+  // TENSION
+  const t = two(ev.tension);
+  const tensionP1 = t.length
+    ? `${mid ? `Rien d'insurmontable entre ${p1Name} et ${p2Name}, mais voilà où ça frotte.` : `Autant le dire : ${p1Name} et ${p2Name} ont du sport.`} ${t.join(' ')}`
     : `Peu de heurts frontaux entre ${p1Name} et ${p2Name} : les frictions, quand elles viennent, tiennent surtout à des différences de rythme qu'il faut apprendre à doser.`;
+  const t2 = one(ev.tension);
+  const tensionP2 = t2
+    ? `${t2} Nommer ces tensions clairement, plutôt que de les contourner, reste le chemin le plus court pour les désamorcer.`
+    : `La bonne nouvelle : ces tensions ne sont pas structurelles. Elles apparaissent surtout dans les moments de pression — des contextes où n'importe quel duo peut se frotter. Un peu d'humour sur les désaccords aide.`;
+  const tension = `${tensionP1}\n\n${tensionP2}`;
 
-  // DYNAMIQUE — « Comment fonctionnent-ils ensemble au quotidien ? »
-  const dynamic = dBody
-    ? `Au quotidien, voilà comment vous tournez. ${dBody}`
-    : `${p1Name} et ${p2Name} se cherchent un peu avant de trouver leur tempo : une fois le partage des rôles posé, l'interaction devient nettement plus fluide.`;
+  // DYNAMIQUE
+  const d = two(ev.dynamic);
+  const dynamicP1 = d.length
+    ? `Au quotidien, ${p1Name} et ${p2Name} ont leur propre façon de tourner. ${d.join(' ')}`
+    : `${p1Name} et ${p2Name} se cherchent un peu avant de trouver leur tempo : une fois les rôles posés, l'interaction devient nettement plus fluide.`;
+  const d2 = one(ev.dynamic);
+  const dynamicP2 = d2
+    ? `${d2} Ce rythme une fois trouvé, vous avancez avec une vraie efficacité.`
+    : `Ce n'est pas tant ce que vous faites ensemble qui compte, mais comment vous le faites. ${p1Name} et ${p2Name} fonctionnent mieux quand chacun sait ce que l'autre apporte — et ne cherche pas à le corriger.`;
+  const dynamic = `${dynamicP1}\n\n${dynamicP2}`;
 
-  // ÉVOLUTION — « Que peut apporter cette relation ? »
-  const evolution = eBody
-    ? `Ce que cette relation peut vous apporter : ${lowerFirst(eBody)}`
+  // ÉVOLUTION
+  const e = two(ev.evolution);
+  const evolutionP1 = e.length
+    ? `Ce que cette relation peut apporter à ${p1Name} et ${p2Name} ne se voit pas forcément tout de suite. ${e.join(' ')}`
     : `Le potentiel ici est dans l'apprentissage : ${p1Name} et ${p2Name} se font mûrir mutuellement, à condition d'accueillir ce que l'autre fait différemment.`;
+  const e2 = one(ev.evolution);
+  const evolutionP2 = e2
+    ? `${e2} C'est souvent ce type de relation qui laisse une trace durable.`
+    : `Ce lien a quelque chose qui construit — pas forcément dans le fracas, mais dans la profondeur. Ce que ${p1Name} et ${p2Name} apprennent l'un de l'autre dépasse la relation elle-même.`;
+  const evolution = `${evolutionP1}\n\n${evolutionP2}`;
 
   return { harmony, tension, dynamic, evolution };
-}
-
-function lowerFirst(s: string): string {
-  return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }

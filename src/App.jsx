@@ -50,14 +50,21 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
               const match = text.match(/\{[\s\S]*\}/)
               if (match) {
                 const parsed = JSON.parse(match[0])
+                // Accept French keys (harmonie/dynamique) and map to internal English keys
+                const mapped = {
+                  harmony:   parsed.harmony   ?? parsed.harmonie,
+                  tension:   parsed.tension,
+                  dynamic:   parsed.dynamic   ?? parsed.dynamique,
+                  evolution: parsed.evolution,
+                }
                 const ok = ['harmony','tension','dynamic','evolution']
-                  .every(k => typeof parsed[k] === 'string' && parsed[k].trim().length > 0)
+                  .every(k => typeof mapped[k] === 'string' && mapped[k].trim().length > 0)
                 if (ok) {
                   return { content: {
-                    harmony: parsed.harmony.trim(),
-                    tension: parsed.tension.trim(),
-                    dynamic: parsed.dynamic.trim(),
-                    evolution: parsed.evolution.trim(),
+                    harmony:   mapped.harmony.trim(),
+                    tension:   mapped.tension.trim(),
+                    dynamic:   mapped.dynamic.trim(),
+                    evolution: mapped.evolution.trim(),
                   }, source: 'gemini' }
                 }
               }
@@ -528,9 +535,13 @@ function ResultView({ result, onRestart }) {
         style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh + 255px)', bottom:0, left:0, right:0, overflowY:'auto', WebkitOverflowScrolling:'touch', overscrollBehavior:'contain' }}
       >
         <div style={{ width:'min(353px, 90vw)', margin:'0 auto', paddingBottom:'calc(env(safe-area-inset-bottom) + 170px)' }}>
-          <p className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'normal', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
-            {text}
-          </p>
+          <div className="cat-text" style={{ opacity:visible?1:0, transition:'opacity 0.3s ease', display:'flex', flexDirection:'column', gap:20 }}>
+            {text.split('\n\n').map((para, i) => (
+              <p key={i} style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'normal', fontSize:24, lineHeight:1.3, letterSpacing:'-0.04em', color:PURPLE, textAlign:'left', margin:0 }}>
+                {para}
+              </p>
+            ))}
+          </div>
         </div>
       </div>
 
