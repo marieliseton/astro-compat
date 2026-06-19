@@ -13,7 +13,10 @@
   to   { background-position: 0 1200px; }
 }
 
-html[data-screen="1"] {
+html[data-screen="1"] { background: #ffffff; }
+html[data-screen="1"] body { background-color: #ffffff; }
+
+.home-bg {
   background: repeating-linear-gradient(
     180deg,
     #ffffff   0%,
@@ -22,11 +25,10 @@ html[data-screen="1"] {
     #fb97d3  65%,
     #e74fa5  85%,
     #ffffff 100%
-  );
-  background-size: 100% 1200px;
-  animation: home-gradient 6s linear infinite;
+  ) !important;
+  background-size: 100% 1200px !important;
+  animation: home-gradient 6s linear infinite !important;
 }
-html[data-screen="1"] body { background-color: #ffffff; }
 
 html[data-screen="2"] { background: linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%) fixed; }
 html[data-screen="2"] body { background-color: #FF589B; } /* bord haut du dégradé */

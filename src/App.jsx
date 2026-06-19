@@ -847,7 +847,7 @@ export default function App() {
       <div style={{ position:'fixed', inset:0, overflow:'hidden', backgroundColor:topColor, transition:'background-color 0.4s' }}>
 
         {/* ── SCREEN 1 ── */}
-        <div style={{ position:'absolute', inset:0, background:'#fff', overflow:'hidden', transition:'opacity 0.4s', ...visible(1) }}>
+        <div className="home-bg" style={{ position:'absolute', inset:0, overflow:'hidden', transition:'opacity 0.4s', ...visible(1) }}>
           <StarGrid />
           <div style={{ position:'absolute', width:272, height:128, left:'calc(50% - 136px)', top:'calc(50% - 64px)', background:'#fff', filter:'blur(12.65px)', borderRadius:100, pointerEvents:'none' }} />
           <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#1E00FF', pointerEvents:'none' }}>
