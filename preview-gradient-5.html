@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview 5 — Largeur de bandes</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; }
+
+  /*
+    Couleurs exactes :
+      #FFFFFF → #00CCFF → #FBFF00 → #FB97D3 → #E74FA5 → #FFFFFF (loop)
+    Le gradient utilise des % pour s'adapter à n'importe quelle hauteur de cycle.
+    JS change background-size + animation-duration via les boutons.
+  */
+  body {
+    background: repeating-linear-gradient(
+      180deg,
+      #ffffff   0%,
+      #ffffff   4%,
+      #00ccff  16%,
+      #00ccff  30%,
+      #fbff00  42%,
+      #fbff00  56%,
+      #fb97d3  68%,
+      #fb97d3  80%,
+      #e74fa5  90%,
+      #e74fa5  96%,
+      #ffffff 100%
+    );
+    background-size: 100% 600px;
+    animation: slide 4s linear infinite;
+  }
+
+  @keyframes slide {
+    0%   { background-position: 0 0; }
+    100% { background-position: 0 var(--cycle, 600px); }
+  }
+
+  /* trick : on surcharge la keyframe via une var CSS mise à jour en JS */
+
+  #stars {
+    position: fixed; inset: 0;
+    display: grid;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .content {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px; z-index: 2;
+  }
+  .title {
+    font-family: Georgia, serif; font-style: italic;
+    font-size: 38px; color: #fff;
+    text-shadow: 0 2px 14px rgba(0,0,0,.22);
+    letter-spacing: -0.02em; text-align: center;
+  }
+  .field {
+    width: 290px; height: 52px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 100px;
+    display: flex; align-items: center;
+    padding: 0 24px;
+    font-family: Georgia, serif; font-size: 18px; color: #999;
+  }
+  .btn-cta {
+    width: 155px; height: 52px;
+    background: linear-gradient(180deg,#E3F5FE 0%,#0063E7 49.52%,#60D9FE 100%);
+    border: 1px solid #0052BC; border-radius: 100px;
+    color: #fff; font-family: Georgia, serif; font-size: 22px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Contrôles largeur ── */
+  .controls {
+    position: fixed; top: 14px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 10;
+  }
+  .ctrl {
+    background: rgba(0,0,0,0.3);
+    color: #fff; font-family: sans-serif;
+    font-size: 13px; padding: 6px 14px;
+    border-radius: 100px; border: none; cursor: pointer;
+    transition: background .15s;
+  }
+  .ctrl.active { background: rgba(0,0,0,0.75); font-weight: bold; }
+
+  .badge {
+    position: fixed; bottom: 12px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.35); color: #fff;
+    font-family: sans-serif; font-size: 12px;
+    padding: 4px 14px; border-radius: 100px;
+    z-index: 10; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="content">
+  <div class="title">compatibilité<br>astrale</div>
+  <div class="field">prénom 1</div>
+  <div class="field">prénom 2</div>
+  <div class="field">date de naissance</div>
+  <div class="btn-cta">voir</div>
+</div>
+
+<div class="controls">
+  <button class="ctrl" onclick="setBands(600,  'fine (600px)')">fine</button>
+  <button class="ctrl active" onclick="setBands(1200, 'moyenne (1200px)')">moyenne</button>
+  <button class="ctrl" onclick="setBands(2000, 'large (2000px)')">large</button>
+  <button class="ctrl" onclick="setBands(3600, 'très large (3600px)')">très large</button>
+</div>
+
+<div class="badge" id="badge">moyenne (1200px)</div>
+
+<script>
+/* ── Changement de largeur ── */
+function setBands(px, label) {
+  /* background-size */
+  document.body.style.backgroundSize = '100% ' + px + 'px'
+  /* durée proportionnelle : vitesse constante ~200px/s */
+  document.body.style.animationDuration = (px / 200) + 's'
+  /* keyframe end position via style override */
+  document.body.style.setProperty('--cycle', px + 'px')
+  /* reset animation pour repartir proprement */
+  document.body.style.animation = 'none'
+  requestAnimationFrame(() => {
+    document.body.style.animation = `slide ${px/200}s linear infinite`
+  })
+  document.getElementById('badge').textContent = label
+  document.querySelectorAll('.ctrl').forEach(b => b.classList.remove('active'))
+  event.target.classList.add('active')
+}
+
+/* Initialise sur "moyenne" */
+setBands(1200, 'moyenne (1200px)')
+
+/* ── Grille d'étoiles ── */
+const SYMS = ['✩','✧','＊','*','˚','₊','⁺','°','✦','⋆','˖','•','‧',
+  '★','✪','☆','✨','💫','✱','✰','⋆']
+const COLORS = [
+  '#b3eeff','#ccf6ff','#fff',
+  '#fffdb3','#fffacc',
+  '#fdc8e8','#fbaad8',
+  '#f48cc5','#ee6baf',
+  '#ffffff','#e8faff'
+]
+const grid = document.getElementById('stars')
+const CELL = 32
+function build() {
+  grid.innerHTML = ''
+  const cols = Math.ceil(window.innerWidth / CELL)
+  const rows = Math.ceil(window.innerHeight / CELL)
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`
+  grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`
+  const cells = []
+  for (let i = 0; i < cols * rows; i++) {
+    const d = document.createElement('div')
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;font-size:17px;'
+    d.textContent = SYMS[Math.floor(Math.random() * SYMS.length)]
+    const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+    d.style.color = c; d.dataset.base = c
+    grid.appendChild(d); cells.push(d)
+  }
+  return cells
+}
+let cells = build()
+window.addEventListener('resize', () => { cells = build() })
+
+function twinkle() {
+  const n = Math.floor(Math.random() * 4) + 1
+  for (let i = 0; i < n; i++) {
+    const c = cells[Math.floor(Math.random() * cells.length)]
+    if (!c) continue
+    c.style.transition = 'color .05s'
+    c.style.color = '#fff'; c.style.fontSize = '20px'
+    setTimeout(() => { c.style.color = c.dataset.base; c.style.fontSize = '17px' }, 150 + Math.random()*200)
+  }
+  setTimeout(twinkle, 80 + Math.random() * 250)
+}
+twinkle()
+</script>
+</body>
+</html>
