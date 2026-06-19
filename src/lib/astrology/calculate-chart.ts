@@ -252,5 +252,22 @@ export function calculateChart(data: BirthData): NatalChart {
     (chart as Record<string, unknown>)[key] = position;
   }
 
+  // Nœud lunaire nord MOYEN (formule de Meeus, T = siècles juliens depuis J2000).
+  // Indépendant de l'éphéméride : suffisant pour la synastrie (axe de croissance).
+  const Tnode = time.tt / 36525;
+  const nodeLon = ((125.0445479
+    - 1934.1362891 * Tnode
+    + 0.0020754 * Tnode * Tnode
+    + (Tnode * Tnode * Tnode) / 467441
+    - (Tnode * Tnode * Tnode * Tnode) / 60616000) % 360 + 360) % 360;
+  const nodeSign = longitudeToSign(nodeLon);
+  chart.northNode = {
+    longitude: Math.round(nodeLon * 100) / 100,
+    sign: nodeSign.sign,
+    signDegree: nodeSign.signDegree,
+    house: planetHouse(nodeLon, cusps),
+    retrograde: true, // le nœud moyen est toujours rétrograde
+  };
+
   return chart as NatalChart;
 }

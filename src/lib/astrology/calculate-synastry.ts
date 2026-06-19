@@ -1,10 +1,12 @@
 import type { Aspect, NatalChart, PlanetKey } from './types';
 import { detectAspects, chartBodies } from './calculate-aspects';
 
-// Only personal + social planets for synastry (outer planets too slow to be interpersonal)
-const SYNASTRY_KEYS: (PlanetKey | 'ascendant')[] = [
+// Planètes personnelles + sociales pour la synastrie. Pluton est inclus pour
+// la facette « tension » (pouvoir/intensité) et le nœud nord pour « évolution »
+// (axe de croissance). Uranus/Neptune restent exclus (trop lents = générationnels).
+const SYNASTRY_KEYS: (PlanetKey | 'ascendant' | 'northNode')[] = [
   'sun', 'moon', 'mercury', 'venus', 'mars',
-  'jupiter', 'saturn', 'ascendant',
+  'jupiter', 'saturn', 'pluto', 'ascendant', 'northNode',
 ];
 
 function synastryBodies(chart: NatalChart) {

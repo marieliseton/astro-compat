@@ -1,54 +1,61 @@
 import type { Aspect } from './types';
-import { interpretAspects } from './aspect-interpreter';
+import { categorizeEvidence } from './aspect-interpreter';
 
 const bullet = (items: string[]): string =>
-  items.length ? items.map(s => `- ${s}`).join('\n') : '- (rien de marquant)';
+  items.length ? items.map(s => `- ${s}`).join('\n') : '- (peu d\'indices marquants sur cette facette)';
 
-// Construit le prompt Gemini : 4 textes par catégorie, chacun ancré dans des
-// indices relationnels réels (déjà traduits sans jargon astrologique).
 export function buildCompatibilityPrompt(
   p1Name: string,
   p2Name: string,
   score: number,
   aspects: Aspect[],
 ): string {
-  const { positive, negative } = interpretAspects(aspects);
-  const harmonyEvidence = bullet(positive.slice(0, 6));
-  const tensionEvidence = bullet(negative.slice(0, 6));
+  const ev = categorizeEvidence(aspects);
 
-  return `Tu écris pour une appli de compatibilité au ton premium mais FUN. Direct, vivant, un brin décalé : tu balances des observations vraies et parlantes, avec le sourire — comme un·e ami·e hyper lucide qui dit les choses. Surtout pas un horoscope, surtout pas mièvre ni vague.
+  return `Tu écris une interprétation de compatibilité astrale entre ${p1Name} et ${p2Name}, en français,
+pour une lecture sur mobile. Ton : chaleureux, concret, vivant, pas vulgaire, pas familier. AUCUN jargon astrologique
+(jamais les mots "sextile", "carré", "conjonction", "opposition", "maison", ni les noms
+de planètes). On parle de compatibilité GÉNÉRALE entre deux personnes, pas de romance.
 
-Personnes : ${p1Name} et ${p2Name}
-Score de compatibilité : ${score}/100
+Tu traites quatre facettes, dans cet ordre exact : harmonie, tension, dynamique, évolution.
 
-Ce qui les rapproche (indices) :
-${harmonyEvidence}
+Pour CHAQUE facette, écris au minimum DEUX paragraphes :
+- Paragraphe 1 : décris la dynamique réelle entre ${p1Name} et ${p2Name}, de façon imagée mais
+  concrète. Utilise les deux prénoms, en alternant avec "vous". Sois précis sur ce qui se
+  joue entre eux — pas de généralités vagues qui marcheraient pour n'importe qui.
+- Paragraphe 2 : nomme le VRAI point de friction (ou la condition pour que ça fonctionne),
+  sans l'édulcorer, puis termine sur une note constructive et nuancée.
 
-Ce qui crée de la friction (indices) :
-${tensionEvidence}
+Chaque paragraphe fait 3 à 4 phrases.
 
-Produis EXACTEMENT cet objet JSON, sans markdown, sans backticks, sans rien avant ni après :
+Voici le registre visé (à imiter pour le ton, pas le contenu) :
+"Vous êtes souvent sur la même longueur d'onde pour les aspects importants de la vie.
+${p1Name} sait pousser ${p2Name} à aller au bout de ses idées, et parvient à canaliser son esprit
+parfois saturé. De son côté, ${p2Name} est une véritable source d'inspiration. Toutefois, avec
+le temps, il est possible que ${p1Name}, plus autoritaire, prenne le dessus et impose trop
+souvent ses points de vue. Vous apprendrez sans doute à accepter les petits défauts de l'autre."
 
-{"harmony":"...","tension":"...","dynamic":"...","evolution":"..."}
+Score global de compatibilité : ${score}/100
 
-Sens de chaque catégorie :
-- harmony   : ce qui les rapproche pour de vrai, ce qui matche sans effort.
-- tension   : là où ça coince, dit franchement et sans dramatiser.
-- dynamic   : comment ils fonctionnent concrètement ensemble, qui fait quoi.
-- evolution : ce que cette relation peut leur apporter, vers quoi elle les pousse.
+Données pour t'appuyer (n'invente rien au-delà) :
+- harmonie (ce qui les rapproche) :
+${bullet(ev.harmony)}
 
-Chaque texte a une PERSONNALITÉ nette pour qu'on devine la catégorie même sans titre :
-- harmony : complice, chaleureux, un peu malicieux — « vous deux, ça matche ».
-- tension : cash et lucide, mais qui dédramatise — « là où ça frotte ».
-- dynamic : punchy, concret, au présent — « voilà comment vous tournez ».
-- evolution : motivant, qui projette — « là où ça peut vous emmener ».
+- tension (les défis) :
+${bullet(ev.tension)}
 
-Contraintes absolues :
-- TON : direct, fun, parlant, un brin quirky. Concret plutôt que poétique. Tu peux t'adresser à eux (« vous »), glisser une pointe d'humour, une image qui claque. Reste classe, jamais lourd.
-- LONGUEUR : 4 à 6 phrases par texte, ~65 mots MAXIMUM. Plus long et plus vivant qu'un slogan, assez court pour tenir sans scroll.
-- Le score (${score}/100) transparaît dans le ton : haut = enthousiaste ; bas = plus honnête sur les frictions, mais jamais déprimant.
-- ZÉRO vocabulaire astrologique : aucun mot comme planète, signe, maison, trigone, sextile, carré, opposition, aspect, ascendant, thème.
-- Cite ${p1Name} et/ou ${p2Name} dans au moins deux des quatre textes.
-- Ne suppose aucune relation amoureuse, romantique ou sexuelle.
-- Rien de générique : on doit sentir que ça parle de CES deux personnes. Français soigné.`;
+- dynamique (comment ils fonctionnent) :
+${bullet(ev.dynamic)}
+
+- évolution (ce que ça apporte) :
+${bullet(ev.evolution)}
+
+Réponds UNIQUEMENT en JSON valide, sans texte avant ni après, sans backticks. Sépare les
+deux paragraphes par \\n\\n. Format exact :
+{
+  "harmonie": "premier paragraphe\\n\\ndeuxième paragraphe",
+  "tension": "...",
+  "dynamique": "...",
+  "evolution": "..."
+}`;
 }

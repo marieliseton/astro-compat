@@ -21,8 +21,8 @@ function angleDiff(a: number, b: number): number {
 }
 
 function detectAspects(
-  lonA: number, keyA: PlanetKey | 'ascendant',
-  lonB: number, keyB: PlanetKey | 'ascendant',
+  lonA: number, keyA: PlanetKey | 'ascendant' | 'northNode',
+  lonB: number, keyB: PlanetKey | 'ascendant' | 'northNode',
 ): Aspect[] {
   const results: Aspect[] = [];
   const diff = angleDiff(lonA, lonB);
@@ -43,7 +43,7 @@ function detectAspects(
   return results;
 }
 
-type Body = { key: PlanetKey | 'ascendant'; longitude: number };
+type Body = { key: PlanetKey | 'ascendant' | 'northNode'; longitude: number };
 
 function chartBodies(chart: NatalChart): Body[] {
   const planets: PlanetKey[] = [
@@ -52,6 +52,7 @@ function chartBodies(chart: NatalChart): Body[] {
   ];
   const bodies: Body[] = planets.map(k => ({ key: k, longitude: chart[k].longitude }));
   bodies.push({ key: 'ascendant', longitude: chart.ascendant.longitude });
+  bodies.push({ key: 'northNode', longitude: chart.northNode.longitude });
   return bodies;
 }
 
