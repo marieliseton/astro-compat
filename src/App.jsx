@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
-  calculateChart, calculateSynastry, calculateCompatibilityScore,
+  calculateChart, calculateSynastry, computeScoreBreakdown,
   buildCompatibilityPrompt, buildLocalContent, compatibilityCache,
 } from './lib/astrology/index.ts'
 
@@ -50,21 +50,25 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
               const match = text.match(/\{[\s\S]*\}/)
               if (match) {
                 const parsed = JSON.parse(match[0])
-                // Accept French keys (harmonie/dynamique) and map to internal English keys
+                // Accept French keys (harmonie/dynamique/synthese) → internal English keys
                 const mapped = {
                   harmony:   parsed.harmony   ?? parsed.harmonie,
                   tension:   parsed.tension,
                   dynamic:   parsed.dynamic   ?? parsed.dynamique,
                   evolution: parsed.evolution,
+                  synthesis: parsed.synthesis ?? parsed.synthese ?? parsed.synthèse,
                 }
                 const ok = ['harmony','tension','dynamic','evolution']
                   .every(k => typeof mapped[k] === 'string' && mapped[k].trim().length > 0)
                 if (ok) {
+                  const synth = typeof mapped.synthesis === 'string' ? mapped.synthesis.trim() : ''
                   return { content: {
                     harmony:   mapped.harmony.trim(),
                     tension:   mapped.tension.trim(),
                     dynamic:   mapped.dynamic.trim(),
                     evolution: mapped.evolution.trim(),
+                    // si Gemini omet la synthèse, on la prend du fallback local (cohérent au score)
+                    synthesis: synth || buildLocalContent(aspects, p1Name, p2Name, score).synthesis,
                   }, source: 'gemini' }
                 }
               }
@@ -410,6 +414,9 @@ const CATEGORIES = [
   { key:'evolution', label:'évolution', // chrome bleuté
     disc:'radial-gradient(circle at 73% 77%, rgba(180,225,255,0.50) 0%, rgba(180,225,255,0) 28%), radial-gradient(circle at 52% 54%, rgba(100,165,220,0.28) 0%, rgba(100,165,220,0) 42%), radial-gradient(circle at 44% 40%, #D8EEF8 0%, #78A0B8 25%, #304858 55%, #0E1820 85%, #040810 100%)',
     glints:GLINTS_CHROME, spec:SPEC_CHROME },
+  { key:'synthesis', label:'en bref', // chrome argenté (verdict global)
+    disc:'radial-gradient(circle at 73% 77%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 28%), radial-gradient(circle at 52% 54%, rgba(205,205,212,0.30) 0%, rgba(205,205,212,0) 42%), radial-gradient(circle at 44% 40%, #FFFFFF 0%, #C9C9D0 24%, #87878F 52%, #45454C 82%, #18181C 100%)',
+    glints:GLINTS_CHROME, spec:SPEC_CHROME },
 ]
 
 // Bille glossy 40px + label 12px. Active : reflet principal fixe + reflets
@@ -562,7 +569,7 @@ function ResultView({ result, onRestart }) {
           display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
         }}>
           <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
-          <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
+          <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:'clamp(10px, 3.5vw, 30px)' }}>
             {CATEGORIES.map(c => (
               <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
             ))}
@@ -811,9 +818,10 @@ export default function App() {
         return
       }
 
-      const aspects = calculateSynastry(chart1, chart2)
-      const score   = calculateCompatibilityScore(aspects)
-      const prompt  = buildCompatibilityPrompt(p1.prenom, p2.prenom, score, aspects)
+      const aspects   = calculateSynastry(chart1, chart2)
+      const breakdown = computeScoreBreakdown(aspects)
+      const score     = breakdown.score
+      const prompt    = buildCompatibilityPrompt(p1.prenom, p2.prenom, breakdown, aspects)
       const { content, source, reason } = await generateStructuredInterpretation(
         prompt, score, p1.prenom, p2.prenom, aspects
       )
