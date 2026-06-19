@@ -64,6 +64,13 @@ function phraseFor(asp: Aspect): string | null {
   return asp.harmonic ? tr.harmonic : tr.discordant;
 }
 
+// Phrase en langage clair décrivant un aspect selon sa VRAIE nature
+// (harmonique → phrase positive, dur → phrase de friction). Exporté pour la
+// couche "indices du prompt".
+export function phraseForAspect(asp: Aspect): string | null {
+  return phraseFor(asp);
+}
+
 // Conservé pour compatibilité (vue globale positive/négative).
 export function interpretAspects(aspects: Aspect[]): { positive: string[]; negative: string[] } {
   const positive: string[] = [];

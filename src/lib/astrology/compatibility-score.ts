@@ -103,9 +103,20 @@ function planetImportance(asp: Aspect): number {
   return (wa + wb) / 10; // ≈ 0.4 .. 1.0
 }
 
-// Contribution signée d'un aspect (indépendante de la facette).
-function contribution(asp: Aspect): number {
+// Contribution signée d'un aspect (indépendante de la facette). Exporté pour
+// que la couche "indices du prompt" classe les aspects avec EXACTEMENT la même
+// logique que le score → bullets et score ne peuvent jamais se contredire.
+export function aspectContribution(asp: Aspect): number {
   return aspectBase(asp) * orbTightness(asp) * planetImportance(asp);
+}
+
+// Corps propres à chaque facette, exporté pour la sélection des indices.
+export function facetBodies(f: Facet): Set<string> {
+  return FACET_BODIES[f];
+}
+
+export function aspectInvolves(asp: Aspect, f: Facet): boolean {
+  return involves(asp, FACET_BODIES[f]);
 }
 
 function involves(asp: Aspect, bodies: Set<string>): boolean {
@@ -117,7 +128,7 @@ function involves(asp: Aspect, bodies: Set<string>): boolean {
 export function computeFacetRaw(aspects: Aspect[]): Record<Facet, number> {
   const raw: Record<Facet, number> = { harmony: 0, tension: 0, dynamic: 0, evolution: 0 };
   for (const asp of aspects) {
-    const c = contribution(asp);
+    const c = aspectContribution(asp);
     if (c === 0) continue;
     for (const f of FACETS) {
       if (involves(asp, FACET_BODIES[f])) raw[f] += c;
