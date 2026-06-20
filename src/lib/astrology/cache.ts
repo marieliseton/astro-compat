@@ -1,9 +1,10 @@
 import type { StructuredContent } from './types';
 
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-// v4 : 4 textes par facette + synthèse globale, calibrés sur les sous-scores
-// (honnêteté liée au score). Le suffixe invalide les contenus v3 en cache.
-const PREFIX = 'astro_compat_v4_';
+// v3 : textes par facette (harmonie/tension/dynamique/évolution) dérivés de
+// corps astrologiques différents. Le suffixe invalide les contenus génériques
+// encore en cache pour forcer une régénération avec la nouvelle qualité.
+const PREFIX = 'astro_compat_v3_';
 
 interface CacheEntry {
   score: number;

@@ -69,11 +69,9 @@ export interface ChartDisplay {
 // tension   : les zones de friction potentielles
 // dynamic   : leur manière d'interagir ensemble
 // evolution : ce que la relation peut apporter ou enseigner
-// synthesis : verdict global honnête de 2-3 phrases (« en bref »)
 export interface StructuredContent {
   harmony: string;
   tension: string;
   dynamic: string;
   evolution: string;
-  synthesis: string;
 }
