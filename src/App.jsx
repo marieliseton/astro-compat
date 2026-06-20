@@ -489,6 +489,45 @@ function PlanetNav({ cat, active, onSelect }) {
   )
 }
 
+// ── Score animé : défile de 0 à la valeur finale (ease-out) ───────────────────
+// requestAnimationFrame (pas setInterval) → fluide 60fps. Arrondi entier à
+// chaque frame, valeur exacte garantie en fin. Respecte prefers-reduced-motion.
+// Aucune dépendance à un positionnement fixed → sûr sur iOS Safari. Largeur
+// réservée par un fantôme invisible (chiffre calé à droite) → le % ne bouge pas.
+function AnimatedScore({ value, duration = 1500 }) {
+  const target = Math.round(Number(value) || 0)
+  const [display, setDisplay] = useState(0)
+  const rafRef   = useRef(null)
+  const startRef = useRef(null)
+
+  useEffect(() => {
+    const reduce = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { setDisplay(target); return }
+
+    startRef.current = null
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3) // cubic : rapide puis ralentit
+
+    const tick = (now) => {
+      if (startRef.current == null) startRef.current = now
+      const t = Math.min(1, (now - startRef.current) / duration)
+      setDisplay(Math.round(target * easeOut(t)))
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+      else setDisplay(target)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [target, duration])
+
+  return (
+    <span style={{ position:'relative', display:'inline-block' }}>
+      <span aria-hidden="true" style={{ visibility:'hidden' }}>{target}</span>
+      <span style={{ position:'absolute', right:0, top:0, whiteSpace:'nowrap' }}>{display}</span>
+    </span>
+  )
+}
+
 function ResultView({ result, onRestart }) {
   const [active, setActive]   = useState('harmony')
   const [shown, setShown]     = useState('harmony')
@@ -519,7 +558,7 @@ function ResultView({ result, onRestart }) {
         </div>
         <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.2vh', fontSize:'min(200px, 24vh)', lineHeight:0.9, color:PURPLE }}>
           <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }}>
-            {result.score}
+            <AnimatedScore value={result.score} />
           </span>
           <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:'0.2em', lineHeight:1, letterSpacing:'-0.04em', marginTop:'0.12em', marginLeft:'0.15em' }}>
             %
