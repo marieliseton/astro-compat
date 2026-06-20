@@ -1,4 +1,8 @@
 import type { Aspect, StructuredContent } from './types';
+import {
+  computeScoreBreakdown, aspectContribution, aspectInvolves,
+  type Facet,
+} from './compatibility-score';
 
 interface Translation {
   harmonic: string;
@@ -62,6 +66,13 @@ function phraseFor(asp: Aspect): string | null {
   const tr = TRANSLATIONS[pairKey(asp)];
   if (!tr) return null;
   return asp.harmonic ? tr.harmonic : tr.discordant;
+}
+
+// Phrase en langage clair décrivant un aspect selon sa VRAIE nature
+// (harmonique → phrase positive, dur → phrase de friction). Exporté pour la
+// couche "indices du prompt".
+export function phraseForAspect(asp: Aspect): string | null {
+  return phraseFor(asp);
 }
 
 // Conservé pour compatibilité (vue globale positive/négative).
@@ -147,6 +158,35 @@ export function categorizeEvidence(aspects: Aspect[]): CategoryEvidence {
   return out;
 }
 
+// ── Indices pour le prompt : classés par contribution RÉELLE au score ─────────
+// Pour chaque facette, on prend les aspects touchant ses corps, on les classe
+// par |contribution| (même calcul que le score), on garde les plus marquants et
+// on les tague (+) rapproche / (−) frotte. Garantit que les indices ne peuvent
+// jamais contredire le sous-score (un score bas remonte ses vrais points durs).
+const PROMPT_FACETS: Facet[] = ['harmony', 'tension', 'dynamic', 'evolution'];
+
+export type PromptEvidence = Record<Facet, string[]>;
+
+export function buildPromptEvidence(aspects: Aspect[], maxPerFacet = 4): PromptEvidence {
+  const out: PromptEvidence = { harmony: [], tension: [], dynamic: [], evolution: [] };
+  for (const f of PROMPT_FACETS) {
+    const seen = new Set<string>();
+    out[f] = aspects
+      .filter(a => aspectInvolves(a, f) && phraseFor(a))
+      .map(a => ({ a, c: aspectContribution(a) }))
+      .filter(x => Math.abs(x.c) > 0.02)
+      .sort((x, y) => Math.abs(y.c) - Math.abs(x.c))
+      .reduce<string[]>((acc, { a, c }) => {
+        const phrase = phraseFor(a)!;
+        if (acc.length >= maxPerFacet || seen.has(phrase)) return acc;
+        seen.add(phrase);
+        acc.push(`${c >= 0 ? '(+)' : '(−)'} ${phrase}`);
+        return acc;
+      }, []);
+  }
+  return out;
+}
+
 // ── Fallback local : 4 textes en deux paragraphes, ancrés dans les indices ─────
 // Même format que la sortie Gemini : "para1\n\npara2" par facette.
 export function buildLocalContent(
@@ -217,5 +257,17 @@ export function buildLocalContent(
     : `Ce lien a quelque chose qui construit — pas forcément dans le fracas, mais dans la profondeur. Ce que ${p1Name} et ${p2Name} apprennent l'un de l'autre dépasse la relation elle-même.`;
   const evolution = `${evolutionP1}\n\n${evolutionP2}`;
 
-  return { harmony, tension, dynamic, evolution };
+  // SYNTHÈSE — verdict honnête, calé sur le score global et les sous-scores.
+  const fac = computeScoreBreakdown(aspects).facets;
+  const weakest = (['harmony', 'tension', 'dynamic', 'evolution'] as const)
+    .reduce((lo, k) => (fac[k] < fac[lo] ? k : lo), 'harmony' as const);
+  const weakWord = { harmony: 'le naturel entre vous', tension: 'la gestion des frictions',
+    dynamic: 'votre façon de fonctionner au quotidien', evolution: 'ce que la relation construit' }[weakest];
+  const synthesis = score >= 70
+    ? `Dans l'ensemble, ${p1Name} et ${p2Name} ont de vrais atouts à faire valoir ensemble. Tout n'est pas parfait — ${weakWord} demandera un peu d'attention — mais le socle est solide et la relation a de quoi tenir.`
+    : score >= 50
+      ? `Entre ${p1Name} et ${p2Name}, c'est une compatibilité en demi-teinte : de belles zones d'entente, mais aussi des points qui frottent, surtout sur ${weakWord}. Rien d'irréconciliable, à condition que chacun y mette du sien plutôt que d'attendre que l'autre change.`
+      : `Soyons honnêtes : entre ${p1Name} et ${p2Name}, la compatibilité de fond reste limitée, en particulier sur ${weakWord}. Ça ne condamne rien — beaucoup de liens se construisent sur des différences — mais il faudra en être conscient et ne pas compter sur une évidence qui n'est pas là.`;
+
+  return { harmony, tension, dynamic, evolution, synthesis };
 }
