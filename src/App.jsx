@@ -126,10 +126,12 @@ const LABEL_STYLE = {
   fontFamily: "'IM Fell DW Pica',serif",
   fontSize: 20,
   letterSpacing: '-0.04em',
-  color: '#9C9AA0',
+  color: '#000',
   pointerEvents: 'none',
   whiteSpace: 'nowrap',
 }
+// Label noir au repos ; au focus il pâlit en gris très clair (simple indice).
+const LABEL_FOCUS_COLOR = '#D8D6DB'
 // Champ en flux (centré par le parent flex) avec son halo flou propre.
 const FIELD_BOX = {
   position: 'relative',
@@ -166,14 +168,16 @@ function BlueButton({ label, onClick, style, className }) {
 
 function FieldText({ label, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
       <input ref={ref} type="text" enterKeyHint="next" style={INPUT_STYLE}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => setHasVal(!!e.target.value)}
         onKeyDown={e => { if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() } }}
       />
@@ -186,6 +190,7 @@ function FieldText({ label, onEnter, inputRef }) {
 
 function FieldVille({ label, onConfirm, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
   const timer = useRef(null)
@@ -240,9 +245,11 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
     <div style={{ position:'relative', width:322, maxWidth:'100%', zIndex:10 }}>
       <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
         <div style={BLUR_BG} />
-        {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+        {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
         <input ref={ref} type="text" autoComplete="off" enterKeyHint="next" style={INPUT_STYLE}
+          onFocus={() => setFocused(true)}
           onBlur={() => {
+            setFocused(false)
             setHasVal(!!ref.current?.value)
             setTimeout(() => setShowDrop(false), 200)
           }}
@@ -285,8 +292,8 @@ function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {/* Au repos : nom du champ en gris. Au clic : format attendu JJ/MM/AAAA. */}
-      {!hasVal && <span style={LABEL_STYLE}>{focused ? 'JJ/MM/AAAA' : label}</span>}
+      {/* Au repos : nom du champ en noir. Au clic : format JJ/MM/AAAA, gris très clair. */}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{focused ? 'JJ/MM/AAAA' : label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={dateFmt(dateRaw)} enterKeyHint="next" style={INPUT_STYLE}
         onFocus={() => setFocused(true)}
         onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
@@ -318,15 +325,17 @@ function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
 
 function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!timeRaw)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={timeFmt(timeRaw)} enterKeyHint="done" style={INPUT_STYLE}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,4)
           if (d.length>=1 && parseInt(d[0])>2) d='2'+d.slice(1)
@@ -915,7 +924,7 @@ export default function App() {
         {/* ── SCREEN 2 ── */}
         <FormScreen key={`s2-${formKey}`} visible={screen===2}
           bgStyle={{ background:'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)' }}
-          deco="₊˚⊹☆" title="personne 1" ctaColor="#FFFBC9"
+          deco="₊˚⊹☆" title="vos infos" ctaColor="#FFFBC9"
           labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
           onSubmit={data => { p1Ref.current = data; setScreen(3) }}
         />
@@ -923,7 +932,7 @@ export default function App() {
         {/* ── SCREEN 3 ── */}
         <FormScreen key={`s3-${formKey}`} visible={screen===3}
           bgStyle={{ background:'linear-gradient(180deg, #78D119 0%, #FFF827 100%)' }}
-          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" title="personne 2" ctaColor="#000000"
+          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" title="ses infos" ctaColor="#000000"
           labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
           onSubmit={data => { calculate(p1Ref.current, data) }}
         />
