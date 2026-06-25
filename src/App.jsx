@@ -126,7 +126,7 @@ const LABEL_STYLE = {
   fontFamily: "'IM Fell DW Pica',serif",
   fontSize: 20,
   letterSpacing: '-0.04em',
-  color: '#000',
+  color: '#9C9AA0',
   pointerEvents: 'none',
   whiteSpace: 'nowrap',
 }
@@ -173,7 +173,6 @@ function FieldText({ label, onEnter, inputRef }) {
       <div style={BLUR_BG} />
       {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
       <input ref={ref} type="text" enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
         onBlur={() => setHasVal(!!ref.current?.value)}
         onChange={e => setHasVal(!!e.target.value)}
         onKeyDown={e => { if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() } }}
@@ -190,24 +189,43 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
   const timer = useRef(null)
+  const abortRef = useRef(null)
+  const cacheRef = useRef({})       // saisie (minuscule) → résultats déjà obtenus
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
+  // Autocomplétion via Photon (komoot) : moteur pensé pour le type-ahead, bien
+  // plus rapide que la recherche Nominatim. On annule la requête précédente
+  // (AbortController) et on met chaque saisie en cache → réponse instantanée si
+  // l'utilisateur efface ou re-tape. Restreint aux lieux habités côté serveur.
+  function showItems(items) { setSuggestions(items); setShowDrop(items.length > 0) }
+
   async function fetchSugg(q) {
-    if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
+    const query = q.trim()
+    if (query.length < 2) { setSuggestions([]); setShowDrop(false); return }
+    const ck = query.toLowerCase()
+    if (cacheRef.current[ck]) { showItems(cacheRef.current[ck]); return }
     clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&featuretype=city`, { headers:{'Accept-Language':'fr'} })
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=fr&limit=8`
+          + '&osm_tag=place:city&osm_tag=place:town&osm_tag=place:village&osm_tag=place:municipality'
+        const res = await fetch(url, { signal: ctrl.signal })
         const data = await res.json()
         const seen = {}
-        const items = data.map(p => {
-          const city = p.address.city||p.address.town||p.address.village||p.address.municipality||p.display_name.split(',')[0].trim()
-          return city + (p.address.country ? ', '+p.address.country : '')
-        }).filter(l => { if(seen[l]) return false; seen[l]=1; return true })
-        setSuggestions(items); setShowDrop(items.length > 0)
-      } catch { setSuggestions([]); setShowDrop(false) }
-    }, 100)
+        const items = (data.features || []).map(f => {
+          const p = f.properties || {}
+          const name = p.name || p.city
+          const ctx  = p.country || p.state
+          return name ? (ctx ? `${name}, ${ctx}` : name) : null
+        }).filter(l => l && !seen[l] && (seen[l] = true))
+        cacheRef.current[ck] = items
+        showItems(items)
+      } catch (e) { if (e.name !== 'AbortError') { setSuggestions([]); setShowDrop(false) } }
+    }, 120)
   }
 
   function pick(s) {
@@ -224,7 +242,6 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
         <div style={BLUR_BG} />
         {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
         <input ref={ref} type="text" autoComplete="off" enterKeyHint="next" style={INPUT_STYLE}
-          onFocus={() => setHasVal(true)}
           onBlur={() => {
             setHasVal(!!ref.current?.value)
             setTimeout(() => setShowDrop(false), 200)
@@ -261,16 +278,18 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
 
 function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!dateRaw)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {/* Au repos : nom du champ en gris. Au clic : format attendu JJ/MM/AAAA. */}
+      {!hasVal && <span style={LABEL_STYLE}>{focused ? 'JJ/MM/AAAA' : label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={dateFmt(dateRaw)} enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,8)
           if (d.length>=1 && parseInt(d[0])>3) d='3'+d.slice(1)
@@ -307,7 +326,6 @@ function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
       <div style={BLUR_BG} />
       {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={timeFmt(timeRaw)} enterKeyHint="done" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
         onBlur={() => setHasVal(!!ref.current?.value)}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,4)
@@ -335,7 +353,7 @@ function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
 // ── Écran formulaire ──────────────────────────────────────────────────────────
 // L'état du formulaire vit ici, pas dans App → aucun re-render de App pendant la saisie
 
-function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
+function FormScreen({ visible, bgStyle, deco, title, ctaColor, labels, onSubmit }) {
   const refPrenom = useRef(null)
   const refVille = useRef(null)
   const refDate = useRef(null)
@@ -364,7 +382,12 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
       <div style={{ position:'absolute', inset:0, ...bgStyle }} />
       {/* Formulaire centré horizontalement et verticalement */}
       <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 20px' }}>
-        {deco && <div style={{ marginBottom:24, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
+        {(deco || title) && (
+          <div style={{ marginBottom:24, display:'flex', alignItems:'center', justifyContent:'center', gap:10, color:ctaColor||'#000', textAlign:'center' }}>
+            {deco && <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em' }}>{deco}</span>}
+            {title && <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:26, letterSpacing:'-0.04em' }}>{title}</span>}
+          </div>
+        )}
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:13 }}>
           <FieldText  label={labels[0]} onEnter={() => refVille.current?.focus()} inputRef={refPrenom} />
           <FieldVille label={labels[1]} onConfirm={v => setVilleOk(!!v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
@@ -892,7 +915,7 @@ export default function App() {
         {/* ── SCREEN 2 ── */}
         <FormScreen key={`s2-${formKey}`} visible={screen===2}
           bgStyle={{ background:'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)' }}
-          deco="₊˚⊹☆" ctaColor="#FFFBC9"
+          deco="₊˚⊹☆" title="personne 1" ctaColor="#FFFBC9"
           labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
           onSubmit={data => { p1Ref.current = data; setScreen(3) }}
         />
@@ -900,7 +923,7 @@ export default function App() {
         {/* ── SCREEN 3 ── */}
         <FormScreen key={`s3-${formKey}`} visible={screen===3}
           bgStyle={{ background:'linear-gradient(180deg, #78D119 0%, #FFF827 100%)' }}
-          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" ctaColor="#000000"
+          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" title="personne 2" ctaColor="#000000"
           labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
           onSubmit={data => { calculate(p1Ref.current, data) }}
         />

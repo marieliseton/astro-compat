@@ -1,10 +1,10 @@
 import type { StructuredContent } from './types';
 
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-// v3 : textes par facette (harmonie/tension/dynamique/évolution) dérivés de
-// corps astrologiques différents. Le suffixe invalide les contenus génériques
-// encore en cache pour forcer une régénération avec la nouvelle qualité.
-const PREFIX = 'astro_compat_v3_';
+// v5 : textes par facette enrichis de vocabulaire astrologique expliqué (Lune,
+// ascendant…) et en langage inclusif. Le suffixe invalide les contenus encore
+// en cache pour forcer une régénération avec la nouvelle qualité.
+const PREFIX = 'astro_compat_v5_';
 
 interface CacheEntry {
   score: number;

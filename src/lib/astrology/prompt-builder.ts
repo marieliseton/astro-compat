@@ -1,5 +1,5 @@
 import type { Aspect } from './types';
-import { categorizeEvidence } from './aspect-interpreter';
+import { categorizeEvidence, formatBodies } from './aspect-interpreter';
 
 const bullet = (items: string[]): string =>
   items.length ? items.map(s => `- ${s}`).join('\n') : '- (peu d\'indices marquants sur cette facette)';
@@ -13,27 +13,47 @@ export function buildCompatibilityPrompt(
   const ev = categorizeEvidence(aspects);
 
   return `Tu écris une interprétation de compatibilité astrale entre ${p1Name} et ${p2Name}, en français,
-pour une lecture sur mobile. Ton : chaleureux, concret, vivant, pas vulgaire, pas familier. AUCUN jargon astrologique
-(jamais les mots "sextile", "carré", "conjonction", "opposition", "maison", ni les noms
-de planètes). On parle de compatibilité GÉNÉRALE entre deux personnes, pas de romance.
+pour une lecture sur mobile. Ton : chaleureux, concret, vivant, accessible — jamais vulgaire ni
+trop familier. On parle de compatibilité GÉNÉRALE entre deux personnes (lien humain, pas forcément
+amoureux).
+
+PUBLIC NOVICE EN ASTROLOGIE. Tu DOIS intégrer un peu de vocabulaire astrologique (la Lune, le Soleil,
+Vénus, Mars, Mercure, Saturne, Jupiter, l'ascendant, le Nœud nord…) MAIS en expliquant en quelques
+mots simples, la première fois que tu l'emploies, ce que le terme représente. Exemples de tournure :
+« la Lune, qui parle de vos émotions », « ton ascendant, la première impression que tu donnes ».
+Reste léger : un ou deux termes expliqués par facette, le texte doit rester fluide, jamais technique,
+et ne jamais employer les mots "sextile", "carré", "conjonction", "opposition", "trigone" ni "maison".
+
+LANGAGE INCLUSIF — TRÈS IMPORTANT : les prénoms ${p1Name} et ${p2Name} peuvent être masculins OU
+féminins, tu ne sais pas. N'accorde JAMAIS un adjectif ou un participe passé en genre à ${p1Name} ou
+${p2Name}, n'écris ni « il » ni « elle » pour eux. Préfère les prénoms, le « vous » collectif, et des
+tournures avec des noms (« la sensibilité de ${p1Name} », « l'énergie de ${p2Name} ») plutôt que des
+adjectifs accordés. Si un adjectif est inévitable, choisis-en un invariable au masculin/féminin.
+
+QUALITÉ : français impeccable, ZÉRO faute d'orthographe ou de grammaire, ponctuation soignée, phrases
+qui ont du sens et qui s'enchaînent bien.
 
 Tu traites quatre facettes, dans cet ordre exact : harmonie, tension, dynamique, évolution.
+Chaque facette est gouvernée par certains corps astrologiques — appuie-toi dessus pour le jargon :
+- harmonie  → ${formatBodies(ev.bodies.harmony)}
+- tension   → ${formatBodies(ev.bodies.tension)}
+- dynamique → ${formatBodies(ev.bodies.dynamic)}
+- évolution → ${formatBodies(ev.bodies.evolution)}
 
 Pour CHAQUE facette, écris au minimum DEUX paragraphes :
 - Paragraphe 1 : décris la dynamique réelle entre ${p1Name} et ${p2Name}, de façon imagée mais
-  concrète. Utilise les deux prénoms, en alternant avec "vous". Sois précis sur ce qui se
-  joue entre eux — pas de généralités vagues qui marcheraient pour n'importe qui.
-- Paragraphe 2 : nomme le VRAI point de friction (ou la condition pour que ça fonctionne),
-  sans l'édulcorer, puis termine sur une note constructive et nuancée.
+  concrète, en t'appuyant sur UN corps astrologique de la facette (nommé et expliqué simplement).
+  Utilise les deux prénoms, en alternant avec « vous ». Sois précis — pas de généralités passe-partout.
+- Paragraphe 2 : nomme le VRAI point de friction (ou la condition pour que ça fonctionne), sans
+  l'édulcorer, puis termine sur une note constructive et nuancée.
 
 Chaque paragraphe fait 3 à 4 phrases.
 
-Voici le registre visé (à imiter pour le ton, pas le contenu) :
-"Vous êtes souvent sur la même longueur d'onde pour les aspects importants de la vie.
-${p1Name} sait pousser ${p2Name} à aller au bout de ses idées, et parvient à canaliser son esprit
-parfois saturé. De son côté, ${p2Name} est une véritable source d'inspiration. Toutefois, avec
-le temps, il est possible que ${p1Name}, plus autoritaire, prenne le dessus et impose trop
-souvent ses points de vue. Vous apprendrez sans doute à accepter les petits défauts de l'autre."
+Voici le registre visé (à imiter pour le ton et l'usage du jargon, pas le contenu) :
+"Avec la Lune — celle qui gouverne les émotions — bien reliée entre vous, ${p1Name} et ${p2Name} se
+comprennent souvent à demi-mot. ${p1Name} apporte une écoute qui rassure, tandis que ${p2Name} ouvre
+de nouvelles perspectives. Le point de vigilance : veiller à ce que les non-dits ne s'installent pas.
+Poser les choses à voix haute, même maladroitement, vaut toujours mieux que de deviner."
 
 Score global de compatibilité : ${score}/100
 

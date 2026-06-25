@@ -8,7 +8,7 @@ interface Translation {
 // Clés triées alphabétiquement (ex: 'mercury' < 'moon', 'jupiter' < 'mars').
 // 'ascendant' → 'asc', 'northNode' → 'node' (voir normKey).
 const TRANSLATIONS: Record<string, Translation> = {
-  'moon-sun':        { harmonic: 'Vous avez une facilité naturelle à vous sentir compris et accueillis mutuellement.', discordant: 'Vos besoins émotionnels et vos attentes peuvent parfois tirer dans des directions différentes.' },
+  'moon-sun':        { harmonic: 'Vous avez une facilité naturelle à vous comprendre et à vous accueillir mutuellement.', discordant: 'Vos besoins émotionnels et vos attentes peuvent parfois tirer dans des directions différentes.' },
   'moon-moon':       { harmonic: 'Vos sensibilités se rejoignent souvent sans effort, ce qui facilite une vraie compréhension.', discordant: 'Vous ne traitez pas toujours les situations émotionnelles au même rythme.' },
   'mars-venus':      { harmonic: 'Il existe entre vous une dynamique d\'énergie et d\'enthousiasme mutuels.', discordant: 'Vos manières d\'agir et de vous exprimer peuvent parfois créer des malentendus.' },
   'sun-venus':       { harmonic: 'Vous avez une réelle facilité à apprécier et à valoriser ce que l\'autre apporte.', discordant: 'Certaines attentes affectives risquent de rester implicites si elles ne sont pas exprimées.' },
@@ -54,6 +54,34 @@ const TRANSLATIONS: Record<string, Translation> = {
 const normKey = (k: string): string =>
   k === 'ascendant' ? 'asc' : k === 'northNode' ? 'node' : k;
 
+// ── Vocabulaire astrologique accessible (public novice) ───────────────────────
+// Nom courant + courte explication grand public. Réutilisés par le prompt Gemini
+// ET le fallback local pour glisser un peu de jargon SANS perdre le lecteur.
+const BODY_FR: Record<string, string> = {
+  sun: 'le Soleil', moon: 'la Lune', mercury: 'Mercure', venus: 'Vénus', mars: 'Mars',
+  jupiter: 'Jupiter', saturn: 'Saturne', pluto: 'Pluton', asc: "l'ascendant", node: 'le Nœud nord',
+};
+const BODY_MEANING: Record<string, string> = {
+  sun: "l'identité, ce qui anime profondément chacun",
+  moon: 'les émotions et les besoins du cœur',
+  mercury: 'la communication et la façon de penser',
+  venus: "l'affection, la tendresse et les goûts",
+  mars: "l'énergie, l'élan et la manière d'agir",
+  jupiter: "l'envie de grandir et de voir plus grand",
+  saturn: "le sérieux, la durée et l'engagement",
+  pluto: "l'intensité et la transformation profonde",
+  asc: 'la première impression, la façon de se présenter',
+  node: 'le chemin de vie, la direction vers laquelle on grandit',
+};
+const capFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+// "le Soleil (l'identité…), Vénus (l'affection…)" — guide le prompt Gemini pour
+// qu'il nomme et explique les bons corps selon la facette.
+export function formatBodies(keys: string[]): string {
+  if (!keys.length) return "(pas de corps dominant ici — reste général, mais glisse tout de même un terme astrologique simple et explique-le brièvement)";
+  return keys.slice(0, 3).map(k => `${BODY_FR[k]} (${BODY_MEANING[k]})`).join(', ');
+}
+
 function pairKey(asp: Aspect): string {
   return [normKey(String(asp.planetA)), normKey(String(asp.planetB))].sort().join('-');
 }
@@ -95,11 +123,15 @@ const DYNAMIC_BODIES = new Set(['mercury', 'sun', 'moon']);
 // évolution = Jupiter & Nœud nord (tout lien) + Saturne CONSTRUCTIF (lien fluide).
 // Défini dans la boucle car ce n'est pas un simple « involves ».
 
+type Facette = 'harmony' | 'tension' | 'dynamic' | 'evolution';
+
 export interface CategoryEvidence {
   harmony: string[];
   tension: string[];
   dynamic: string[];
   evolution: string[];
+  // Corps astrologiques réellement en jeu dans chaque facette (clés normalisées).
+  bodies: Record<Facette, string[]>;
 }
 
 const MAX_PER_CAT = 5;
@@ -108,16 +140,26 @@ const MAX_PER_CAT = 5;
 // des indices en langage clair dans les 4 facettes. Chaque facette ne pioche
 // que dans SES corps et SON type de lien → 4 angles réellement différents.
 export function categorizeEvidence(aspects: Aspect[]): CategoryEvidence {
-  const out: CategoryEvidence = { harmony: [], tension: [], dynamic: [], evolution: [] };
-  const seen = {
-    harmony: new Set<string>(), tension: new Set<string>(),
-    dynamic: new Set<string>(), evolution: new Set<string>(),
+  const out: CategoryEvidence = {
+    harmony: [], tension: [], dynamic: [], evolution: [],
+    bodies: { harmony: [], tension: [], dynamic: [], evolution: [] },
+  };
+  const seen: Record<Facette, Set<string>> = {
+    harmony: new Set(), tension: new Set(), dynamic: new Set(), evolution: new Set(),
+  };
+  const bodySeen: Record<Facette, Set<string>> = {
+    harmony: new Set(), tension: new Set(), dynamic: new Set(), evolution: new Set(),
   };
 
-  const add = (cat: keyof CategoryEvidence, dedupe: string, phrase: string | null) => {
+  const add = (cat: Facette, dedupe: string, phrase: string | null) => {
     if (!phrase || out[cat].length >= MAX_PER_CAT || seen[cat].has(dedupe)) return;
     seen[cat].add(dedupe);
     out[cat].push(phrase);
+  };
+  const addBodies = (cat: Facette, keys: string[]) => {
+    for (const k of keys) {
+      if (BODY_FR[k] && !bodySeen[cat].has(k)) { bodySeen[cat].add(k); out.bodies[cat].push(k); }
+    }
   };
 
   for (const asp of aspects) {
@@ -132,16 +174,28 @@ export function categorizeEvidence(aspects: Aspect[]): CategoryEvidence {
     const isHard = asp.aspect === 'square' || asp.aspect === 'opposition';
 
     // HARMONIE : liens fluides touchant Vénus/Lune/Soleil
-    if (asp.harmonic && involves(HARMONY_BODIES)) add('harmony', pair, tr.harmonic);
+    if (asp.harmonic && involves(HARMONY_BODIES)) {
+      add('harmony', pair, tr.harmonic);
+      addBodies('harmony', [a, b].filter(x => HARMONY_BODIES.has(x)));
+    }
     // TENSION : carrés & oppositions touchant Mars/Saturne/Pluton
-    if (isHard && involves(TENSION_BODIES)) add('tension', pair, tr.discordant);
+    if (isHard && involves(TENSION_BODIES)) {
+      add('tension', pair, tr.discordant);
+      addBodies('tension', [a, b].filter(x => TENSION_BODIES.has(x)));
+    }
     // DYNAMIQUE : Mercure/Soleil/Lune entre eux (manière d'interagir au quotidien)
-    if (both(DYNAMIC_BODIES)) add('dynamic', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+    if (both(DYNAMIC_BODIES)) {
+      add('dynamic', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+      addBodies('dynamic', [a, b]);
+    }
     // ÉVOLUTION : croissance — Jupiter & Nœud nord (tout lien) + Saturne fluide.
     // (Les liens DURS à Saturne/Pluton restent en TENSION → pas de doublon.)
     const growth = a === 'jupiter' || b === 'jupiter' || a === 'node' || b === 'node'
       || ((a === 'saturn' || b === 'saturn') && asp.harmonic);
-    if (growth) add('evolution', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+    if (growth) {
+      add('evolution', `${pair}-${asp.harmonic ? 'h' : 'd'}`, phraseFor(asp));
+      addBodies('evolution', [a, b].filter(x => x === 'jupiter' || x === 'node' || (x === 'saturn' && asp.harmonic)));
+    }
   }
 
   return out;
@@ -158,6 +212,18 @@ export function buildLocalContent(
   const ev = categorizeEvidence(aspects);
   const hi = score >= 60;
   const mid = score >= 50;
+
+  // Amorce chaque facette par un corps astrologique réellement en jeu (ou un
+  // corps par défaut), présenté en quelques mots pour le public novice.
+  // Tournures neutres (« vous ») → aucun accord de genre lié aux prénoms.
+  const astroLead = (keys: string[], fallback: string, tail: string): string => {
+    const k = keys[0] || fallback;
+    return `${capFirst(BODY_FR[k])} — ${BODY_MEANING[k]} — ${tail}`;
+  };
+  const leadHarmony   = astroLead(ev.bodies.harmony,   'venus',   'éclaire ce qui vous rapproche.');
+  const leadTension   = astroLead(ev.bodies.tension,   'mars',    'révèle où les choses peuvent frotter entre vous.');
+  const leadDynamic   = astroLead(ev.bodies.dynamic,   'mercury', 'règle votre tempo au quotidien.');
+  const leadEvolution = astroLead(ev.bodies.evolution, 'jupiter', 'dessine ce que vous pouvez faire mûrir ensemble.');
 
   const used = new Set<string>();
   const pickArr = (arr: string[], n: number): string[] => {
@@ -182,7 +248,7 @@ export function buildLocalContent(
   const harmonyP2 = h2
     ? `${h2} Ce qui rapproche ${p1Name} et ${p2Name} ne s'épuise pas — il s'étoffe avec le temps.`
     : `Ce que vous partagez ne se résume pas à des affinités de surface. La solidité de ce lien tient à une façon similaire d'aborder ce qui compte, même quand les manières de l'exprimer diffèrent.`;
-  const harmony = `${harmonyP1}\n\n${harmonyP2}`;
+  const harmony = `${leadHarmony} ${harmonyP1}\n\n${harmonyP2}`;
 
   // TENSION
   const t = two(ev.tension);
@@ -193,7 +259,7 @@ export function buildLocalContent(
   const tensionP2 = t2
     ? `${t2} Nommer ces tensions clairement, plutôt que de les contourner, reste le chemin le plus court pour les désamorcer.`
     : `La bonne nouvelle : ces tensions ne sont pas structurelles. Elles apparaissent surtout dans les moments de pression — des contextes où n'importe quel duo peut se frotter. Un peu d'humour sur les désaccords aide.`;
-  const tension = `${tensionP1}\n\n${tensionP2}`;
+  const tension = `${leadTension} ${tensionP1}\n\n${tensionP2}`;
 
   // DYNAMIQUE
   const d = two(ev.dynamic);
@@ -204,7 +270,7 @@ export function buildLocalContent(
   const dynamicP2 = d2
     ? `${d2} Ce rythme une fois trouvé, vous avancez avec une vraie efficacité.`
     : `Ce n'est pas tant ce que vous faites ensemble qui compte, mais comment vous le faites. ${p1Name} et ${p2Name} fonctionnent mieux quand chacun sait ce que l'autre apporte — et ne cherche pas à le corriger.`;
-  const dynamic = `${dynamicP1}\n\n${dynamicP2}`;
+  const dynamic = `${leadDynamic} ${dynamicP1}\n\n${dynamicP2}`;
 
   // ÉVOLUTION
   const e = two(ev.evolution);
@@ -215,7 +281,7 @@ export function buildLocalContent(
   const evolutionP2 = e2
     ? `${e2} C'est souvent ce type de relation qui laisse une trace durable.`
     : `Ce lien a quelque chose qui construit — pas forcément dans le fracas, mais dans la profondeur. Ce que ${p1Name} et ${p2Name} apprennent l'un de l'autre dépasse la relation elle-même.`;
-  const evolution = `${evolutionP1}\n\n${evolutionP2}`;
+  const evolution = `${leadEvolution} ${evolutionP1}\n\n${evolutionP2}`;
 
   return { harmony, tension, dynamic, evolution };
 }
