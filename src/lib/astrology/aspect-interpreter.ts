@@ -154,7 +154,10 @@ export function buildLocalContent(
   p1Name: string,
   p2Name: string,
   score: number,
+  lang: 'fr' | 'en' = 'fr',
 ): StructuredContent {
+  if (lang === 'en') return buildLocalContentEN(p1Name, p2Name, score);
+
   const ev = categorizeEvidence(aspects);
   const hi = score >= 60;
   const mid = score >= 50;
@@ -216,6 +219,25 @@ export function buildLocalContent(
     ? `${e2} C'est souvent ce type de relation qui laisse une trace durable.`
     : `Ce lien a quelque chose qui construit — pas forcément dans le fracas, mais dans la profondeur. Ce que ${p1Name} et ${p2Name} apprennent l'un de l'autre dépasse la relation elle-même.`;
   const evolution = `${evolutionP1}\n\n${evolutionP2}`;
+
+  return { harmony, tension, dynamic, evolution };
+}
+
+function buildLocalContentEN(p1Name: string, p2Name: string, score: number): StructuredContent {
+  const hi = score >= 60;
+  const mid = score >= 50;
+
+  const harmony = hi
+    ? `${p1Name} and ${p2Name} share a genuine common ground that shows up naturally in what matters most. There's a real ease between them — not the kind you have to force, but the kind that builds quietly over time.\n\nWhat draws them together isn't superficial. The more they share, the more ${p1Name} and ${p2Name} tend to discover new layers of affinity they hadn't noticed before.`
+    : `The connection between ${p1Name} and ${p2Name} takes time to reveal itself — not immediately obvious, but the foundation is there. Some of the best things about their dynamic only emerge once they've been through a few things together.\n\nWhat they share is real, even if it doesn't always feel effortless. With patience, ${p1Name} and ${p2Name} tend to build something more solid than first impressions suggest.`;
+
+  const tension = mid
+    ? `There's nothing insurmountable between ${p1Name} and ${p2Name}, but there are spots where things can get rough. Differences in pace or approach can create friction if they're not addressed early.\n\nNaming these tensions directly, rather than working around them, is usually the fastest way through. A willingness to be honest about the rough edges — and to laugh at the disagreements — helps a lot.`
+    : `${p1Name} and ${p2Name} have some real work ahead of them when pressure builds. Their instinctive reactions can pull in opposite directions at the moments when alignment matters most.\n\nThe encouraging part: these tensions aren't built-in flaws — they're challenges that tend to surface under stress. The key is what ${p1Name} and ${p2Name} do with it once the dust settles.`;
+
+  const dynamic = `Day to day, ${p1Name} and ${p2Name} each bring their own way of operating — and learning to read those rhythms takes a little time. Once they've found their tempo, things run noticeably more smoothly.\n\nWhat counts isn't just what they do together, but how. ${p1Name} and ${p2Name} tend to work best when each knows what the other brings and doesn't feel the need to change it.`;
+
+  const evolution = `What this relationship can offer ${p1Name} and ${p2Name} isn't always immediately visible. Growth tends to happen in layers here — sometimes quietly, sometimes only clear in retrospect.\n\nThis kind of connection builds something lasting — not through fireworks, but through depth. What ${p1Name} and ${p2Name} learn from each other tends to stay with them long after.`;
 
   return { harmony, tension, dynamic, evolution };
 }
