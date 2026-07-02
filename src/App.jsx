@@ -30,9 +30,9 @@ function parseTime(raw) {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, aspects) {
+async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, aspects, lang = 'fr') {
   if (!GEMINI_KEY) {
-    return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback' }
+    return { content: buildLocalContent(aspects, p1Name, p2Name, score, lang), source: 'fallback' }
   }
   let lastError = ''
   for (const model of GEMINI_MODELS) {
@@ -68,9 +68,9 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
                   }, source: 'gemini' }
                 }
               }
-            } catch { /* essayer le modèle suivant */ }
+            } catch { /* try next model */ }
           }
-          lastError = `Réponse non structurée (${model})`
+          lastError = `Unstructured response (${model})`
           break
         }
         lastError = (await resp.json().catch(()=>({}))).error?.message || `Gemini ${resp.status}`
@@ -80,7 +80,7 @@ async function generateStructuredInterpretation(prompt, score, p1Name, p2Name, a
     }
   }
   console.log('[astro] fallback local:', lastError)
-  return { content: buildLocalContent(aspects, p1Name, p2Name, score), source: 'fallback', reason: lastError }
+  return { content: buildLocalContent(aspects, p1Name, p2Name, score, lang), source: 'fallback', reason: lastError }
 }
 
 async function getTimezone(lat, lng) {
@@ -130,6 +130,8 @@ const LABEL_STYLE = {
   pointerEvents: 'none',
   whiteSpace: 'nowrap',
 }
+// Label noir au repos ; au focus il pâlit en gris très clair (simple indice).
+const LABEL_FOCUS_COLOR = '#D8D6DB'
 // Champ en flux (centré par le parent flex) avec son halo flou propre.
 const FIELD_BOX = {
   position: 'relative',
@@ -166,15 +168,16 @@ function BlueButton({ label, onClick, style, className }) {
 
 function FieldText({ label, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
       <input ref={ref} type="text" enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => setHasVal(!!e.target.value)}
         onKeyDown={e => { if (e.key==='Enter'||e.key==='Tab') { e.preventDefault(); onEnter?.() } }}
       />
@@ -187,27 +190,47 @@ function FieldText({ label, onEnter, inputRef }) {
 
 function FieldVille({ label, onConfirm, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop] = useState(false)
   const timer = useRef(null)
+  const abortRef = useRef(null)
+  const cacheRef = useRef({})       // saisie (minuscule) → résultats déjà obtenus
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
+  // Autocomplétion via Photon (komoot) : moteur pensé pour le type-ahead, bien
+  // plus rapide que la recherche Nominatim. On annule la requête précédente
+  // (AbortController) et on met chaque saisie en cache → réponse instantanée si
+  // l'utilisateur efface ou re-tape. Restreint aux lieux habités côté serveur.
+  function showItems(items) { setSuggestions(items); setShowDrop(items.length > 0) }
+
   async function fetchSugg(q) {
-    if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
+    const query = q.trim()
+    if (query.length < 2) { setSuggestions([]); setShowDrop(false); return }
+    const ck = query.toLowerCase()
+    if (cacheRef.current[ck]) { showItems(cacheRef.current[ck]); return }
     clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&featuretype=city`, { headers:{'Accept-Language':'fr'} })
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=fr&limit=8`
+          + '&osm_tag=place:city&osm_tag=place:town&osm_tag=place:village&osm_tag=place:municipality'
+        const res = await fetch(url, { signal: ctrl.signal })
         const data = await res.json()
         const seen = {}
-        const items = data.map(p => {
-          const city = p.address.city||p.address.town||p.address.village||p.address.municipality||p.display_name.split(',')[0].trim()
-          return city + (p.address.country ? ', '+p.address.country : '')
-        }).filter(l => { if(seen[l]) return false; seen[l]=1; return true })
-        setSuggestions(items); setShowDrop(items.length > 0)
-      } catch { setSuggestions([]); setShowDrop(false) }
-    }, 100)
+        const items = (data.features || []).map(f => {
+          const p = f.properties || {}
+          const name = p.name || p.city
+          const ctx  = p.country || p.state
+          return name ? (ctx ? `${name}, ${ctx}` : name) : null
+        }).filter(l => l && !seen[l] && (seen[l] = true))
+        cacheRef.current[ck] = items
+        showItems(items)
+      } catch (e) { if (e.name !== 'AbortError') { setSuggestions([]); setShowDrop(false) } }
+    }, 120)
   }
 
   function pick(s) {
@@ -222,10 +245,11 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
     <div style={{ position:'relative', width:322, maxWidth:'100%', zIndex:10 }}>
       <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
         <div style={BLUR_BG} />
-        {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+        {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
         <input ref={ref} type="text" autoComplete="off" enterKeyHint="next" style={INPUT_STYLE}
-          onFocus={() => setHasVal(true)}
+          onFocus={() => setFocused(true)}
           onBlur={() => {
+            setFocused(false)
             setHasVal(!!ref.current?.value)
             setTimeout(() => setShowDrop(false), 200)
           }}
@@ -259,18 +283,20 @@ function FieldVille({ label, onConfirm, onEnter, inputRef }) {
 // ── Champ date ────────────────────────────────────────────────────────────────
 // Uncontrolled: defaultValue + e.target.value manuel → pas de setSelectionRange ni re-render DOM
 
-function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
+function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef, hint = 'JJ/MM/AAAA' }) {
   const [hasVal, setHasVal] = useState(!!dateRaw)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {/* At rest: field name in black. On focus: date format hint, very light grey. */}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{focused ? hint : label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={dateFmt(dateRaw)} enterKeyHint="next" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,8)
           if (d.length>=1 && parseInt(d[0])>3) d='3'+d.slice(1)
@@ -299,16 +325,17 @@ function FieldDate({ label, dateRaw, onDateChange, onEnter, inputRef }) {
 
 function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
   const [hasVal, setHasVal] = useState(!!timeRaw)
+  const [focused, setFocused] = useState(false)
   const localRef = useRef(null)
   const ref = inputRef || localRef
 
   return (
     <div style={FIELD_BOX} onClick={() => ref.current?.focus()}>
       <div style={BLUR_BG} />
-      {!hasVal && <span style={LABEL_STYLE}>{label}</span>}
+      {!hasVal && <span style={{ ...LABEL_STYLE, color: focused ? LABEL_FOCUS_COLOR : LABEL_STYLE.color }}>{label}</span>}
       <input ref={ref} type="text" inputMode="numeric" defaultValue={timeFmt(timeRaw)} enterKeyHint="done" style={INPUT_STYLE}
-        onFocus={() => setHasVal(true)}
-        onBlur={() => setHasVal(!!ref.current?.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); setHasVal(!!ref.current?.value) }}
         onChange={e => {
           let d = e.target.value.replace(/\D/g,'').slice(0,4)
           if (d.length>=1 && parseInt(d[0])>2) d='2'+d.slice(1)
@@ -335,7 +362,7 @@ function FieldTime({ label, timeRaw, onTimeChange, onEnter, inputRef }) {
 // ── Écran formulaire ──────────────────────────────────────────────────────────
 // L'état du formulaire vit ici, pas dans App → aucun re-render de App pendant la saisie
 
-function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
+function FormScreen({ visible, bgStyle, deco, title, ctaColor, labels, onSubmit, strings }) {
   const refPrenom = useRef(null)
   const refVille = useRef(null)
   const refDate = useRef(null)
@@ -346,15 +373,13 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
   const [villeOk, setVilleOk] = useState(false)
   const [error, setError] = useState('')
 
-  const isMe = labels[0].startsWith('votre')
-
   function handleSubmit() {
     const prenom = (refPrenom.current?.value || '').trim()
     const ville = (refVille.current?.value || '').trim()
-    if (!prenom) { setError(isMe ? 'Merci de renseigner votre prénom.' : 'Merci de renseigner son prénom.'); return }
-    if (!ville || !villeOk) { setError('Sélectionnez une ville dans la liste.'); return }
-    if (dateRaw.length < 8) { setError('Date incomplète (JJ/MM/AAAA).'); return }
-    if (timeRaw.length < 4) { setError('Heure incomplète (HH:MM).'); return }
+    if (!prenom) { setError(strings.errorName); return }
+    if (!ville || !villeOk) { setError(strings.errorCity); return }
+    if (dateRaw.length < 8) { setError(strings.errorDate); return }
+    if (timeRaw.length < 4) { setError(strings.errorTime); return }
     setError('')
     onSubmit({ prenom, ville, dateRaw, timeRaw })
   }
@@ -364,16 +389,21 @@ function FormScreen({ visible, bgStyle, deco, ctaColor, labels, onSubmit }) {
       <div style={{ position:'absolute', inset:0, ...bgStyle }} />
       {/* Formulaire centré horizontalement et verticalement */}
       <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 20px' }}>
-        {deco && <div style={{ marginBottom:24, fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em', color:ctaColor||'#000', textAlign:'center' }}>{deco}</div>}
+        {(deco || title) && (
+          <div style={{ marginBottom:24, display:'flex', alignItems:'center', justifyContent:'center', gap:10, color:ctaColor||'#000', textAlign:'center' }}>
+            {deco && <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontSize:20, letterSpacing:'-0.04em' }}>{deco}</span>}
+            {title && <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:26, letterSpacing:'-0.04em' }}>{title}</span>}
+          </div>
+        )}
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:13 }}>
           <FieldText  label={labels[0]} onEnter={() => refVille.current?.focus()} inputRef={refPrenom} />
           <FieldVille label={labels[1]} onConfirm={v => setVilleOk(!!v)} onEnter={() => refDate.current?.focus()} inputRef={refVille} />
-          <FieldDate  label={labels[2]} dateRaw={dateRaw} onDateChange={setDateRaw} onEnter={() => refTime.current?.focus()} inputRef={refDate} />
+          <FieldDate  label={labels[2]} dateRaw={dateRaw} onDateChange={setDateRaw} onEnter={() => refTime.current?.focus()} inputRef={refDate} hint={strings.dateHint} />
           <FieldTime  label={labels[3]} timeRaw={timeRaw} onTimeChange={setTimeRaw} onEnter={handleSubmit} inputRef={refTime} />
         </div>
         {error && <div style={{ width:322, maxWidth:'100%', marginTop:14, fontFamily:"'IM Fell DW Pica',serif", fontSize:14, fontStyle:'italic', color:ctaColor||'#a0485a', textAlign:'center' }}>{error}</div>}
         <div className="valider-wrap">
-          <BlueButton label="valider" onClick={handleSubmit} />
+          <BlueButton label={strings.validate} onClick={handleSubmit} />
         </div>
       </div>
     </div>
@@ -521,7 +551,7 @@ function AnimatedScore({ value, duration = 1500 }) {
   )
 }
 
-function ResultView({ result, onRestart }) {
+function ResultView({ result, onRestart, strings }) {
   const [active, setActive]   = useState('harmony')
   const [shown, setShown]     = useState('harmony')
   const [visible, setVisible] = useState(true)
@@ -547,7 +577,7 @@ function ResultView({ result, onRestart }) {
       {/* ── Haut : eyebrow + score (avec %) — non interactif pour ne pas bloquer le scroll ── */}
       <div style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 6vh)', left:0, right:0, display:'flex', flexDirection:'column', alignItems:'center', pointerEvents:'none', zIndex:1 }}>
         <div style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:24, lineHeight:'30px', letterSpacing:'-0.04em', color:PURPLE }}>
-          votre compatibilité
+          {strings.eyebrow}
         </div>
         <div style={{ display:'flex', justifyContent:'center', alignItems:'flex-start', marginTop:'1.2vh', fontSize:'min(200px, 24vh)', lineHeight:0.9, color:PURPLE }}>
           <span style={{ fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', letterSpacing:'-0.04em' }}>
@@ -560,7 +590,7 @@ function ResultView({ result, onRestart }) {
       </div>
 
       {/* ── Retour accueil (haut gauche) — recommence le parcours ── */}
-      <button onClick={onRestart} aria-label="recommencer" className="result-home"
+      <button onClick={onRestart} aria-label={strings.restartLabel} className="result-home"
         style={{ position:'absolute', top:'calc(env(safe-area-inset-top) + 12px)', left:10, zIndex:5,
           background:'none', border:'none', cursor:'pointer', padding:'10px 12px',
           fontFamily:"'IM Fell DW Pica',serif", fontSize:26, lineHeight:1, letterSpacing:'-0.02em',
@@ -597,7 +627,7 @@ function ResultView({ result, onRestart }) {
           <div style={{ position:'absolute', top:0, left:0, right:0, height:'52%', background:'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)', pointerEvents:'none', zIndex:0 }} />
           <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'row', justifyContent:'center', alignItems:'flex-start', gap:45 }}>
             {CATEGORIES.map(c => (
-              <PlanetNav key={c.key} cat={c} active={c.key === active} onSelect={setActive} />
+              <PlanetNav key={c.key} cat={{ ...c, label: strings.catLabels[c.key] }} active={c.key === active} onSelect={setActive} />
             ))}
           </div>
         </div>
@@ -608,7 +638,7 @@ function ResultView({ result, onRestart }) {
 
 // ── Loader tourbillon ─────────────────────────────────────────────────────────
 
-function TourbillonLoader() {
+function TourbillonLoader({ text }) {
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -695,7 +725,7 @@ function TourbillonLoader() {
     <div style={{ position:'absolute', inset:0, background:'#0000ff', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:40 }}>
       <div ref={containerRef} />
       <p style={{ fontFamily:"'IM Fell DW Pica',Georgia,serif", fontStyle:'italic', fontSize:18, color:'#fff', letterSpacing:'-0.03em', textAlign:'center' }}>
-        nous calculons votre compatibilité<span className="dots" />
+        {text}<span className="dots" />
       </p>
     </div>
   )
@@ -799,6 +829,55 @@ function StarGrid() {
 const SCREEN_TOP    = { 1:'#ffffff', 2:'#FF589B', 3:'#78D119', 4:'#F3F1E7' }
 const SCREEN_BOTTOM = { 1:'#ffffff', 2:'#FFB962', 3:'#FFF827', 4:'#F3F1E7' }
 
+// ── i18n ─────────────────────────────────────────────────────────────────────
+
+const STRINGS = {
+  fr: {
+    langToggle: 'EN',
+    tagline: 'Découvrez votre compatibilité astrale',
+    start: 'Commencer',
+    screen2Title: 'vos infos',
+    screen2Labels: ['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance'],
+    screen3Title: 'ses infos',
+    screen3Labels: ['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance'],
+    validate: 'valider',
+    dateHint: 'JJ/MM/AAAA',
+    errorName1: 'Merci de renseigner votre prénom.',
+    errorName2: 'Merci de renseigner son prénom.',
+    errorCity: 'Sélectionnez une ville dans la liste.',
+    errorDate: 'Date incomplète (JJ/MM/AAAA).',
+    errorTime: 'Heure incomplète (HH:MM).',
+    loading: 'nous calculons votre compatibilité',
+    eyebrow: 'votre compatibilité',
+    restartLabel: 'recommencer',
+    errorOccurred: 'Une erreur est survenue.',
+    errorBack: '← retour',
+    catLabels: { harmony:'harmonie', tension:'tension', dynamic:'dynamique', evolution:'évolution' },
+  },
+  en: {
+    langToggle: 'FR',
+    tagline: 'Discover your astrological compatibility',
+    start: 'Start',
+    screen2Title: 'your info',
+    screen2Labels: ['your first name','your birth city','your date of birth','your birth time'],
+    screen3Title: 'their info',
+    screen3Labels: ['their first name','their birth city','their date of birth','their birth time'],
+    validate: 'confirm',
+    dateHint: 'DD/MM/YYYY',
+    errorName1: 'Please enter your first name.',
+    errorName2: 'Please enter their first name.',
+    errorCity: 'Please select a city from the list.',
+    errorDate: 'Incomplete date (DD/MM/YYYY).',
+    errorTime: 'Incomplete time (HH:MM).',
+    loading: 'calculating your compatibility',
+    eyebrow: 'your compatibility',
+    restartLabel: 'restart',
+    errorOccurred: 'An error occurred.',
+    errorBack: '← back',
+    catLabels: { harmony:'harmony', tension:'tension', dynamic:'dynamic', evolution:'evolution' },
+  },
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -806,7 +885,10 @@ export default function App() {
   const [formKey, setFormKey] = useState(0)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [lang, setLang] = useState('fr')
   const p1Ref = useRef(null)
+
+  const s = STRINGS[lang]
 
   // ── Couleur des barres système (full-bleed) ───────────────────────────────
   // data-screen + theme-color réglés AVANT le paint pour que la barre haute du
@@ -838,7 +920,7 @@ export default function App() {
 
       const cacheKey1 = `${p1.prenom}|${p1.dateRaw}`
       const cacheKey2 = `${p2.prenom}|${p2.dateRaw}`
-      const cached = compatibilityCache.get(p1.prenom, cacheKey1, p2.prenom, cacheKey2)
+      const cached = compatibilityCache.get(p1.prenom, cacheKey1, p2.prenom, cacheKey2, lang)
       if (cached) {
         setResult({ score: cached.score, ...cached.content })
         return
@@ -846,13 +928,13 @@ export default function App() {
 
       const aspects = calculateSynastry(chart1, chart2)
       const score   = calculateCompatibilityScore(aspects)
-      const prompt  = buildCompatibilityPrompt(p1.prenom, p2.prenom, score, aspects)
+      const prompt  = buildCompatibilityPrompt(p1.prenom, p2.prenom, score, aspects, lang)
       const { content, source, reason } = await generateStructuredInterpretation(
-        prompt, score, p1.prenom, p2.prenom, aspects
+        prompt, score, p1.prenom, p2.prenom, aspects, lang
       )
       if (source==='fallback') console.log('[astro] fallback:', reason)
 
-      compatibilityCache.set(p1.prenom, cacheKey1, p2.prenom, cacheKey2, score, content)
+      compatibilityCache.set(p1.prenom, cacheKey1, p2.prenom, cacheKey2, lang, score, content)
       setResult({ score, ...content })
     } catch(err) {
       setResult({ error: err.message })
@@ -870,12 +952,27 @@ export default function App() {
   const visible = (n) => ({ opacity:screen===n?1:0, pointerEvents:screen===n?'all':'none' })
   const topColor    = SCREEN_TOP[screen]
   const bottomColor = SCREEN_BOTTOM[screen]
+  const langBtnColor = (screen === 4 && loading)
+    ? '#fff'
+    : { 1:'#1E00FF', 2:'#FFFBC9', 3:'#000', 4:PURPLE }[screen]
 
   return (
     <>
       {/* Barres safe-area : en dehors du overflow:hidden pour garantir le rendu */}
       <div style={{ position:'fixed', top:0, left:0, right:0, height:'env(safe-area-inset-top)', background:topColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
       <div style={{ position:'fixed', bottom:0, left:0, right:0, height:'env(safe-area-inset-bottom)', background:bottomColor, zIndex:99999, pointerEvents:'none', transition:'background 0.4s' }} />
+
+      {/* Bouton langue — fixe, visible sur tous les écrans */}
+      <button
+        onClick={() => setLang(l => l === 'fr' ? 'en' : 'fr')}
+        style={{ position:'fixed', top:'calc(env(safe-area-inset-top) + 14px)', right:16, zIndex:100000,
+          background:'none', border:'none', cursor:'pointer', padding:'4px 6px',
+          fontFamily:"'IM Fell DW Pica',serif", fontSize:15, letterSpacing:'-0.02em',
+          color:langBtnColor, textDecoration:'underline', transition:'color 0.4s',
+          WebkitTapHighlightColor:'transparent' }}
+      >
+        {s.langToggle}
+      </button>
 
       <div style={{ position:'fixed', inset:0, overflow:'hidden', backgroundColor:topColor, transition:'background-color 0.4s' }}>
 
@@ -884,38 +981,40 @@ export default function App() {
           <StarGrid />
           <div style={{ position:'absolute', width:272, height:128, left:'calc(50% - 136px)', top:'calc(50% - 64px)', background:'#fff', filter:'blur(12.65px)', borderRadius:100, pointerEvents:'none' }} />
           <div style={{ position:'absolute', width:242, left:'calc(50% - 121px)', top:'calc(50% - 52.5px)', fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', fontSize:40, lineHeight:'35px', textAlign:'center', letterSpacing:'-0.04em', color:'#1E00FF', pointerEvents:'none' }}>
-            Découvrez votre compatibilité astrale
+            {s.tagline}
           </div>
-          <BlueButton label="Commencer" onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)' }} />
+          <BlueButton label={s.start} onClick={() => setScreen(2)} style={{ position:'absolute', left:'calc(50% - 77.5px)', top:'calc(50% + 93px)' }} />
         </div>
 
         {/* ── SCREEN 2 ── */}
         <FormScreen key={`s2-${formKey}`} visible={screen===2}
           bgStyle={{ background:'linear-gradient(180.02deg, #FF589B 28.82%, #FFB962 99.98%)' }}
-          deco="₊˚⊹☆" ctaColor="#FFFBC9"
-          labels={['votre prénom','votre ville de naissance','votre date de naissance','votre heure de naissance']}
+          deco="₊˚⊹☆" title={s.screen2Title} ctaColor="#FFFBC9"
+          labels={s.screen2Labels}
+          strings={{ validate:s.validate, dateHint:s.dateHint, errorName:s.errorName1, errorCity:s.errorCity, errorDate:s.errorDate, errorTime:s.errorTime }}
           onSubmit={data => { p1Ref.current = data; setScreen(3) }}
         />
 
         {/* ── SCREEN 3 ── */}
         <FormScreen key={`s3-${formKey}`} visible={screen===3}
           bgStyle={{ background:'linear-gradient(180deg, #78D119 0%, #FFF827 100%)' }}
-          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" ctaColor="#000000"
-          labels={['son prénom','sa ville de naissance','sa date de naissance','son heure de naissance']}
+          deco="✮ ⋆ ˚｡𖦹 ⋆｡°✩" title={s.screen3Title} ctaColor="#000000"
+          labels={s.screen3Labels}
+          strings={{ validate:s.validate, dateHint:s.dateHint, errorName:s.errorName2, errorCity:s.errorCity, errorDate:s.errorDate, errorTime:s.errorTime }}
           onSubmit={data => { calculate(p1Ref.current, data) }}
         />
 
         {/* ── SCREEN 4 ── */}
         <div style={{ position:'absolute', inset:0, background:'#F3F1E7', overflow:'hidden', transition:'opacity 0.4s', ...visible(4) }}>
-          {loading && <TourbillonLoader />}
+          {loading && <TourbillonLoader text={s.loading} />}
           {!loading && result && !result.error && (
-            <ResultView result={result} onRestart={restart} />
+            <ResultView result={result} onRestart={restart} strings={s} />
           )}
           {!loading && result?.error && (
             <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', padding:20, fontFamily:"'IM Fell DW Pica',serif", fontStyle:'italic', color:'#795275', fontSize:20 }}>
-              <p>Une erreur est survenue.</p>
+              <p>{s.errorOccurred}</p>
               <p style={{ fontSize:14, marginTop:8, opacity:0.6 }}>{result.error}</p>
-              <button onClick={() => { setScreen(3); setResult(null) }} style={{ marginTop:20, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>← retour</button>
+              <button onClick={() => { setScreen(3); setResult(null) }} style={{ marginTop:20, fontFamily:"'IM Fell DW Pica',serif", fontSize:16, color:'#795275', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>{s.errorBack}</button>
             </div>
           )}
         </div>
